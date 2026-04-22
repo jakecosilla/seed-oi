@@ -1,6 +1,19 @@
-import { ReactNode } from 'react';
-import styles from './SidePanel.module.css';
+import React from 'react';
 
-export function SidePanel({ children, className = '', side = 'right' }: { children: ReactNode; className?: string; side?: 'left' | 'right' }) {
-  return <aside className={`${styles.panel} ${styles[side]} ${className}`}>{children}</aside>;
+interface SidePanelProps {
+  children: React.ReactNode;
+  side?: 'left' | 'right';
+  width?: string;
 }
+
+export const SidePanel: React.FC<SidePanelProps> = ({ children, side = 'right', width = '320px' }) => {
+  const borderClass = side === 'left' ? 'border-r' : 'border-l';
+  return (
+    <aside 
+      style={{ width }}
+      className={`h-full bg-white border-slate-200 flex flex-col shrink-0 ${borderClass}`}
+    >
+      {children}
+    </aside>
+  );
+};
