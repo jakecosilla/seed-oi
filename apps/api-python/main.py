@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import uvicorn
 
-from api.routers import health, system, ingestion
+from api.routers import health, system, ingestion, sources
 from infrastructure.config import get_settings
 
 @asynccontextmanager
@@ -26,6 +26,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(system.router)
     app.include_router(ingestion.router)
+    app.include_router(sources.router)
 
     return app
 
