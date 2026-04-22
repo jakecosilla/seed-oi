@@ -1,0 +1,48 @@
+# Node / General
+node_modules/
+dist/
+build/
+.env
+.env.*.local
+.DS_Store
+coverage/
+*.log
+
+# Next.js
+.next/
+out/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# .NET
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+.vs/
+*.sqlite3
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+
+# Project Docs (ignored from repo)
+screen mockups/
+project-progress.md
+seed-oi-ai-agent-prompts.md
+seed-oi-build-steps.md
+seed-oi-product-brief.md
+
+# Agent Skills
+.agents/
+skills-lock.json
