@@ -1,6 +1,7 @@
-import { ReactNode } from 'react';
-import styles from './PageContainer.module.css';
+import React from 'react';
 
-export function PageContainer({ children }: { children: ReactNode }) {
-  return <main className={styles.container}>{children}</main>;
-}
+export const PageContainer: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <main className="flex flex-col flex-1 h-full w-full overflow-hidden">
+    {children}
+  </main>
+);
