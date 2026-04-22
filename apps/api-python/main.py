@@ -1,8 +1,9 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import uvicorn
 
-from api.routers import health, system, ingestion, sources
+from api.routers import health, system, ingestion, sources, events
 from infrastructure.config import get_settings
 
 @asynccontextmanager
@@ -22,11 +23,20 @@ def create_app() -> FastAPI:
         redoc_url="/redoc" if settings.debug else None,
     )
 
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:3000"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     # Include routers
     app.include_router(health.router)
     app.include_router(system.router)
     app.include_router(ingestion.router)
     app.include_router(sources.router)
+    app.include_router(events.router)
 
     return app
 
