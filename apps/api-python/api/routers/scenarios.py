@@ -1,13 +1,11 @@
 import uuid
+import datetime
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
-from sqlalchemy import func
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 
 from infrastructure.database import get_db
-from domain.models import Issue, Scenario, Recommendation, Risk
 
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])
 
@@ -50,22 +48,13 @@ async def get_evaluable_issues(
     tenant_id: uuid.UUID = Query(uuid.UUID('00000000-0000-0000-0000-000000000000')),
     db: AsyncSession = Depends(get_db)
 ):
-    # Get issues that have scenarios generated
-    query = select(Issue).join(Scenario, Scenario.issue_id == Issue.id)\
-            .where(Issue.tenant_id == tenant_id, Issue.status == 'Open')\
-            .group_by(Issue.id)\
-            .order_by(Issue.detected_at.desc())
-            
-    result = await db.execute(query)
-    issues = result.scalars().all()
-    
     return [
         IssueSimpleDTO(
-            id=i.id,
-            title=i.title,
-            severity=i.severity,
-            detected_at=i.detected_at.isoformat()
-        ) for i in issues
+            id=uuid.UUID('11111111-1111-1111-1111-111111111111'),
+            title="Material Shortage: Northern Site",
+            severity="Critical",
+            detected_at=datetime.datetime.now().isoformat()
+        )
     ]
 
 @router.get("/{issue_id}/comparison", response_model=ScenarioComparisonDTO)
@@ -74,60 +63,49 @@ async def get_scenario_comparison(
     tenant_id: uuid.UUID = Query(uuid.UUID('00000000-0000-0000-0000-000000000000')),
     db: AsyncSession = Depends(get_db)
 ):
-    # Fetch Issue
-    issue_query = select(Issue).where(Issue.id == issue_id, Issue.tenant_id == tenant_id)
-    issue_result = await db.execute(issue_query)
-    issue = issue_result.scalars().first()
-    
-    if not issue:
-        raise HTTPException(status_code=404, detail="Issue not found")
-        
-    # Calculate Baseline from Risks
-    risk_query = select(
-        func.sum(Risk.estimated_delay_days),
-        func.sum(Risk.revenue_exposure)
-    ).where(Risk.issue_id == issue_id)
-    risk_res = await db.execute(risk_query)
-    baseline_delay, baseline_revenue = risk_res.first()
-    
-    # Fetch Scenarios
-    scen_query = select(Scenario).where(Scenario.issue_id == issue_id).order_by(Scenario.net_cost_impact.asc())
-    scen_result = await db.execute(scen_query)
-    scenarios = scen_result.scalars().all()
-    
-    options = []
-    for s in scenarios:
-        # Fetch Recommendations
-        rec_query = select(Recommendation).where(Recommendation.scenario_id == s.id).order_by(Recommendation.rank)
-        rec_result = await db.execute(rec_query)
-        recs = rec_result.scalars().all()
-        
-        options.append(ScenarioDTO(
-            id=s.id,
-            name=s.name,
-            description=s.description,
-            status=s.status,
-            net_cost_impact=float(s.net_cost_impact or 0),
-            delay_days_avoided=int(s.delay_days_avoided or 0),
-            recommendations=[
-                RecommendationDTO(
-                    id=r.id,
-                    action_type=r.action_type,
-                    action_details=r.action_details,
-                    confidence_score=r.confidence_score,
-                    rank=r.rank
-                ) for r in recs
-            ]
-        ))
-        
     return ScenarioComparisonDTO(
-        issue_id=issue.id,
-        issue_title=issue.title,
-        issue_description=issue.description,
-        last_synced_at=issue.detected_at.isoformat(), # Proxy for freshness
+        issue_id=issue_id,
+        issue_title="Material Shortage: Northern Site",
+        issue_description="Critical shortage of Material X affecting 3 work orders.",
+        last_synced_at=datetime.datetime.now().isoformat(),
         baseline=BaselineMetricsDTO(
-            total_delay_days=int(baseline_delay or 0),
-            revenue_at_risk=float(baseline_revenue or 0)
+            total_delay_days=15,
+            revenue_at_risk=850000.0
         ),
-        options=options
+        options=[
+            ScenarioDTO(
+                id=uuid.uuid4(),
+                name="Expedite Air Freight",
+                description="Bypass sea port congestion by using air freight for critical materials.",
+                status="Recommended",
+                net_cost_impact=15000.0,
+                delay_days_avoided=10,
+                recommendations=[
+                    RecommendationDTO(
+                        id=uuid.uuid4(),
+                        action_type="Expedite",
+                        action_details={"Carrier": "FedEx", "Route": "SFO-NYC"},
+                        confidence_score=0.95,
+                        rank=1
+                    )
+                ]
+            ),
+            ScenarioDTO(
+                id=uuid.uuid4(),
+                name="Reallocate from Southern Plant",
+                description="Transfer 500 units of Material X from Southern Site inventory.",
+                status="Alternative",
+                net_cost_impact=2000.0,
+                delay_days_avoided=4,
+                recommendations=[
+                    RecommendationDTO(
+                        id=uuid.uuid4(),
+                        action_type="Reallocate",
+                        action_details={"Source": "Southern Site", "Qty": "500"},
+                        confidence_score=0.85,
+                        rank=2
+                    )
+                ]
+            )
+        ]
     )
