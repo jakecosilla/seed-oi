@@ -28,3 +28,14 @@ This directory contains the database schema definitions and Alembic migrations f
    ```bash
    alembic upgrade head
    ```
+
+## Seeding Demo Data
+
+For local demonstrations, you can populate the canonical schema with deterministic, realistic demo data (plants, vendors, materials, inventory, orders, issues, risks, and scenarios) without needing a live ERP integration.
+
+1. Ensure the database schema is up-to-date (`alembic upgrade head`).
+2. Run the seed script:
+   ```bash
+   python seed.py
+   ```
+   *Note: This script will truncate existing tables before inserting the deterministic storyline data, allowing you to easily reset the demo environment.*

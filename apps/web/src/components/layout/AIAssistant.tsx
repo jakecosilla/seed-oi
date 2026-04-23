@@ -81,7 +81,7 @@ export function AIAssistant({ title = "Ask Operations", context, initialMessage 
   };
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full bg-white min-h-0">
       <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
         <div className="flex items-center gap-2 text-indigo-600">
           <Brain size={18} />
@@ -93,7 +93,7 @@ export function AIAssistant({ title = "Ask Operations", context, initialMessage 
         </div>
       </div>
       
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-5 scroll-smooth">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-5 scroll-smooth custom-scrollbar">
         {messages.map((msg, i) => (
           <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
             <div className={`max-w-[95%] rounded-2xl px-4 py-3 text-sm shadow-sm ${

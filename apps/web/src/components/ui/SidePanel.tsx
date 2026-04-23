@@ -11,7 +11,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ children, side = 'right', 
   return (
     <aside 
       style={{ width }}
-      className={`h-full bg-white border-slate-200 flex flex-col shrink-0 ${borderClass}`}
+      className={`h-full bg-white border-slate-200 flex flex-col shrink-0 min-h-0 ${borderClass}`}
     >
       {children}
     </aside>
