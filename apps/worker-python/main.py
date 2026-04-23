@@ -23,13 +23,14 @@ async def main():
         from infrastructure.database import AsyncSessionLocal
         from jobs.issue_detection import run_issue_detection
         from jobs.impact_analysis import run_impact_analysis_cycle
+        from jobs.recommendation_engine import run_recommendation_cycle
         import uuid
         
         # Keep the worker running
         while True:
             # Simulate a heartbeat or polling interval
             await asyncio.sleep(60)
-            logger.info("Running scheduled intelligence cycle (Detection + Impact)...")
+            logger.info("Running scheduled intelligence cycle (Detection + Impact + Recommendations)...")
             
             # Using a placeholder tenant ID for local testing. In production, this would iterate active tenants.
             tenant_id = uuid.UUID('00000000-0000-0000-0000-000000000000')
@@ -41,6 +42,9 @@ async def main():
                     
                     logger.info("-> Analyzing downstream impacts...")
                     await run_impact_analysis_cycle(session, tenant_id)
+                    
+                    logger.info("-> Generating recommendations...")
+                    await run_recommendation_cycle(session, tenant_id)
                     
                 except Exception as e:
                     logger.error(f"Intelligence cycle failed: {e}")
