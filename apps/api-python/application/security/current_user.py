@@ -21,8 +21,8 @@ async def resolve_internal_user(
     Supports auto-provisioning for configured platform admins and a default tenant.
     """
     external_id = token_payload.get("sub")
-    email = token_payload.get("email")
-    name = token_payload.get("name", email)
+    email = token_payload.get("email") or f"{external_id}@auth0.local"
+    name = token_payload.get("name") or token_payload.get("nickname") or email
 
     if not external_id:
         raise HTTPException(
@@ -72,29 +72,46 @@ async def resolve_internal_user(
             detail="System misconfiguration: No tenants available"
         )
 
-    # Determine role based on platform admin list
-    is_platform_admin = email in settings.platform_admins if email else False
-    role = "admin" if is_platform_admin else "viewer"
-
-    new_user = User(
-        id=uuid.uuid4(),
-        email=email,
-        name=name,
-        external_id=external_id,
-        tenant_id=tenant.id,
-        role=role,
-        is_active=True
-    )
-    
-    db.add(new_user)
     try:
-        await db.commit()
-        await db.refresh(new_user)
-        return new_user
+        # Extract metadata with better fallback logic
+        email = token_payload.get("email") or token_payload.get("preferred_username") or f"{external_id}@auth0.local"
+        
+        # Try to find a human-readable name
+        name = token_payload.get("name") or token_payload.get("nickname") or token_payload.get("preferred_username") or external_id
+        
+        # Auto-provision if not found
+        if not user:
+            # Check if this is the first user ever (make them admin)
+            from sqlalchemy import func
+            user_count = await db.scalar(select(func.count(User.id)))
+            initial_role = "admin" if user_count == 0 else "viewer"
+
+            user = User(
+                id=uuid.uuid4(),
+                tenant_id=tenant.id,
+                email=email,
+                name=name,
+                external_id=external_id,
+                role=initial_role,
+                hashed_password="oidc-managed",
+                is_active=True
+            )
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
+            logger.info(f"Auto-provisioned new user: {email} with role {initial_role}")
+        else:
+            # Update existing user if name was just a placeholder
+            if user.name == user.external_id and name != external_id:
+                user.name = name
+                user.email = email
+                await db.commit()
+                await db.refresh(user)
+        return user
     except Exception as e:
         await db.rollback()
         logger.error("user_provisioning_failed", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create internal user record"
+            detail=f"DB Error: {str(e)}"
         )

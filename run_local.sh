@@ -28,26 +28,24 @@ echo "[1/3] Starting Next.js Web Frontend (Port 3000)..."
 echo "[2/3] Starting Python API Service (Port 8000)..."
 (
     cd apps/api-python
-    # Activate virtual environment if it exists locally or in the root/db
-    if [ -d ".venv" ]; then
-        source .venv/bin/activate
-    elif [ -d "../../db/.venv" ]; then
-        source ../../db/.venv/bin/activate
+    if command -v uv &> /dev/null; then
+        uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    else
+        [ -d ".venv" ] && source .venv/bin/activate
+        uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     fi
-    uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ) &
 
 # 3. Start the Python Worker Service
 echo "[3/3] Starting Python Worker Service..."
 (
     cd apps/worker-python
-    # Activate virtual environment if it exists locally or in the root/db
-    if [ -d ".venv" ]; then
-        source .venv/bin/activate
-    elif [ -d "../../db/.venv" ]; then
-        source ../../db/.venv/bin/activate
+    if command -v uv &> /dev/null; then
+        uv run python main.py
+    else
+        [ -d ".venv" ] && source .venv/bin/activate
+        python main.py
     fi
-    python main.py
 ) &
 
 echo "==========================================="

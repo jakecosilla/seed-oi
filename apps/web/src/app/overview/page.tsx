@@ -8,6 +8,7 @@ import { fetchApi } from '@/lib/api-client';
 import { AlertCircle, Clock, DollarSign, Activity, ChevronRight, ShieldAlert, CheckCircle2, ArrowRight } from 'lucide-react';
 import { AIAssistant } from '@/components/layout/AIAssistant';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { useAuth } from '@/providers/AuthProvider';
 
 export interface SummaryData {
   total_open_issues: number;
@@ -54,23 +55,26 @@ export interface Issue {
   top_scenario?: Scenario;
 }
 
-// API Fetchers
-const fetchSummary = async () => fetchApi<SummaryData>('/overview/summary');
-const fetchIssues = async () => fetchApi<Issue[]>('/overview/issues');
-
 export default function OverviewPage() {
+  const { user, accessToken } = useAuth();
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
 
   // Queries with near-real-time refresh (10 seconds)
   const { data: summary } = useQuery({
-    queryKey: ['overview-summary'],
-    queryFn: fetchSummary,
+    queryKey: ['overview-summary', user?.tenant_id],
+    queryFn: () => fetchApi<SummaryData>(`/overview/summary?tenant_id=${user?.tenant_id}`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    }),
+    enabled: !!user && !!accessToken,
     refetchInterval: 10000,
   });
 
   const { data: issues = [] } = useQuery({
-    queryKey: ['overview-issues'],
-    queryFn: fetchIssues,
+    queryKey: ['overview-issues', user?.tenant_id],
+    queryFn: () => fetchApi<Issue[]>(`/overview/issues?tenant_id=${user?.tenant_id}`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    }),
+    enabled: !!user && !!accessToken,
     refetchInterval: 10000,
   });
 

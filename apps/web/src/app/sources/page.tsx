@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/Badge';
 import { AlertCircle, CheckCircle, Database, RefreshCw, XCircle } from 'lucide-react';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 
+import { useAuth } from '@/providers/AuthProvider';
+
 // Types aligning with backend Step 9
 type SourceConnection = {
   id: string;
@@ -40,29 +42,40 @@ type SourceError = {
 
 export default function SourcesPage() {
   const queryClient = useQueryClient();
+  const { user, accessToken } = useAuth();
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
 
   // Fetch Sources list
   const { data: sources = [], isLoading: loadingSources } = useQuery({
-    queryKey: ['sources'],
-    queryFn: () => fetchApi<SourceConnection[]>('/sources'),
+    queryKey: ['sources', user?.tenant_id],
+    queryFn: () => fetchApi<SourceConnection[]>(`/sources?tenant_id=${user?.tenant_id}`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    }),
+    enabled: !!user && !!accessToken,
   });
 
   // Fetch details when source is selected
   const { data: history = [] } = useQuery({
-    queryKey: ['sources', selectedSourceId, 'history'],
-    queryFn: () => fetchApi<SyncHistory[]>(`/sources/${selectedSourceId}/history`),
-    enabled: !!selectedSourceId,
+    queryKey: ['sources', selectedSourceId, 'history', user?.tenant_id],
+    queryFn: () => fetchApi<SyncHistory[]>(`/sources/${selectedSourceId}/history?tenant_id=${user?.tenant_id}`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    }),
+    enabled: !!selectedSourceId && !!user && !!accessToken,
   });
 
   const { data: errors = [] } = useQuery({
-    queryKey: ['sources', selectedSourceId, 'errors'],
-    queryFn: () => fetchApi<SourceError[]>(`/sources/${selectedSourceId}/errors`),
-    enabled: !!selectedSourceId,
+    queryKey: ['sources', selectedSourceId, 'errors', user?.tenant_id],
+    queryFn: () => fetchApi<SourceError[]>(`/sources/${selectedSourceId}/errors?tenant_id=${user?.tenant_id}`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    }),
+    enabled: !!selectedSourceId && !!user && !!accessToken,
   });
 
   const retrySyncMutation = useMutation({
-    mutationFn: (sourceId: string) => fetchApi(`/sources/${sourceId}/retry-sync`, { method: 'POST' }),
+    mutationFn: (sourceId: string) => fetchApi(`/sources/${sourceId}/retry-sync?tenant_id=${user?.tenant_id}`, { 
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    }),
     onSuccess: () => {
       alert('Sync retry queued.');
       queryClient.invalidateQueries({ queryKey: ['sources'] });

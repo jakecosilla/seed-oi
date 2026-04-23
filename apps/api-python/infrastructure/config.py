@@ -12,14 +12,14 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     
-    # Security & OIDC
-    secret_key: str = "super-secret-seed-oi-key"
-    oidc_issuer: str = "https://example-issuer.com"
-    oidc_audience: str = "seed-oi-client-id"
+    # Security & OIDC (Defaults for local dev, override in .env)
+    secret_key: str = "dev-secret-key-change-me"
+    oidc_issuer: str = "https://example-issuer.com/"
+    oidc_audience: str = "https://api.seed-oi.com"
     oidc_jwks_uri: Optional[str] = None # Will be discovered if not set
     
     # Provisioning & RBAC
-    platform_admins: List[str] = ["jake.osilla@seed-grow.com"]
+    platform_admins: List[str] = []
     default_tenant_id: str = "00000000-0000-0000-0000-000000000000"
 
     # CORS Settings

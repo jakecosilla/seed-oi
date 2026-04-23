@@ -8,6 +8,7 @@ import { fetchApi } from '@/lib/api-client';
 import { AlertCircle, Clock, DollarSign, Activity, TrendingUp, AlertTriangle, Filter, Layers } from 'lucide-react';
 import { AIAssistant } from '@/components/layout/AIAssistant';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { useAuth } from '@/providers/AuthProvider';
 
 export interface RiskSummary {
   total_active_risks: number;
@@ -32,28 +33,34 @@ export interface BottleneckItem {
   total_delay_days: number;
 }
 
-const fetchRiskSummary = async () => fetchApi<RiskSummary>('/risks/summary');
-const fetchTimeline = async () => fetchApi<TimelineEvent[]>('/risks/timeline');
-const fetchBottlenecks = async () => fetchApi<BottleneckItem[]>('/risks/bottlenecks');
-
 export default function RisksPage() {
+  const { user, accessToken } = useAuth();
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
   const { data: summary } = useQuery({
-    queryKey: ['risks-summary'],
-    queryFn: fetchRiskSummary,
+    queryKey: ['risks-summary', user?.tenant_id],
+    queryFn: () => fetchApi<RiskSummary>(`/risks/summary?tenant_id=${user?.tenant_id}`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    }),
+    enabled: !!user && !!accessToken,
     refetchInterval: 10000,
   });
 
   const { data: timeline = [] } = useQuery({
-    queryKey: ['risks-timeline'],
-    queryFn: fetchTimeline,
+    queryKey: ['risks-timeline', user?.tenant_id],
+    queryFn: () => fetchApi<TimelineEvent[]>(`/risks/timeline?tenant_id=${user?.tenant_id}`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    }),
+    enabled: !!user && !!accessToken,
     refetchInterval: 10000,
   });
 
   const { data: bottlenecks = [] } = useQuery({
-    queryKey: ['risks-bottlenecks'],
-    queryFn: fetchBottlenecks,
+    queryKey: ['risks-bottlenecks', user?.tenant_id],
+    queryFn: () => fetchApi<BottleneckItem[]>(`/risks/bottlenecks?tenant_id=${user?.tenant_id}`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    }),
+    enabled: !!user && !!accessToken,
     refetchInterval: 10000,
   });
 

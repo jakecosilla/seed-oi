@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles, Send, ArrowRight, Brain, Clock } from 'lucide-react';
 import { fetchApi } from '@/lib/api-client';
+import { useAuth } from '@/providers/AuthProvider';
 
 interface Message {
   role: 'user' | 'ai';
@@ -19,6 +20,7 @@ interface AIAssistantProps {
 }
 
 export function AIAssistant({ title = "Ask Operations", context, initialMessage }: AIAssistantProps) {
+  const { user, accessToken } = useAuth();
   const [chatInput, setChatInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isTyping, setIsTyping] = useState(false);
@@ -41,7 +43,7 @@ export function AIAssistant({ title = "Ask Operations", context, initialMessage 
   }, [messages, isTyping]);
 
   const handleSendMessage = async (text: string) => {
-    if (!text.trim()) return;
+    if (!text.trim() || !user || !accessToken) return;
 
     const userMsg: Message = { 
       role: 'user', 
@@ -53,8 +55,11 @@ export function AIAssistant({ title = "Ask Operations", context, initialMessage 
     setIsTyping(true);
 
     try {
-      const res = await fetchApi<{response: string, suggested_actions?: string[], sources?: string[]}>('/chat/query', {
+      const res = await fetchApi<{response: string, suggested_actions?: string[], sources?: string[]}>(`/chat/query?tenant_id=${user.tenant_id}`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        },
         body: JSON.stringify({ 
           message: text,
           context: context ? { active_context: context } : undefined

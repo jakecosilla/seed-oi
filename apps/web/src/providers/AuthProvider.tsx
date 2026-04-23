@@ -1,8 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { UserManager, WebStorageStateStore, User as OIDCUser } from 'oidc-client-ts';
-import { useRouter, usePathname } from 'next/navigation';
+import { Auth0Provider as Auth0SDKProvider, useAuth0 } from '@auth0/auth0-react';
 
 interface User {
   id: string;
@@ -13,40 +12,40 @@ interface User {
 }
 
 interface AuthContextType {
-  user: User | null;
+  user: User | null; // This is the internal Seed OI user record
+  auth0User: any; // This is the raw Auth0 profile
   isLoading: boolean;
   isAuthenticated: boolean;
   login: () => Promise<void>;
+  signup: () => Promise<void>;
   logout: () => Promise<void>;
   accessToken: string | null;
+  error: Error | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// OIDC Configuration - In production, these would be in environment variables
-const oidcConfig = {
-  authority: process.env.NEXT_PUBLIC_OIDC_AUTHORITY || "https://example-issuer.com",
-  client_id: process.env.NEXT_PUBLIC_OIDC_CLIENT_ID || "seed-oi-client-id",
-  redirect_uri: typeof window !== 'undefined' ? `${window.location.origin}/login/callback` : "",
-  post_logout_redirect_uri: typeof window !== 'undefined' ? window.location.origin : "",
-  response_type: "code",
-  scope: "openid profile email",
-  userStore: typeof window !== 'undefined' ? new WebStorageStateStore({ store: window.localStorage }) : undefined,
-  monitorSession: false,
-};
+const InternalAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const {
+    user: auth0User,
+    isAuthenticated,
+    getAccessTokenSilently,
+    loginWithRedirect,
+    logout: auth0Logout,
+    isLoading: isAuth0Loading,
+    error: auth0Error
+  } = useAuth0();
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter();
-  const pathname = usePathname();
-
-  const [userManager] = useState(() => typeof window !== 'undefined' ? new UserManager(oidcConfig) : null);
+  const [isInternalLoading, setIsInternalLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
 
   const resolveInternalUser = useCallback(async (token: string) => {
+    setIsInternalLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/auth/me', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/auth/me`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -55,68 +54,92 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const internalUser = await response.json();
         setUser(internalUser);
       } else {
-        console.error("Failed to resolve internal user profile");
+        const errData = await response.json();
+        console.error("Failed to resolve internal user profile", errData);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error resolving internal user", err);
+    } finally {
+      setIsInternalLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (!userManager) return;
-
-    const initAuth = async () => {
-      try {
-        // Check if we are in a callback
-        if (pathname === '/login/callback') {
-          const oidcUser = await userManager.signinCallback();
-          setAccessToken(oidcUser.access_token);
-          await resolveInternalUser(oidcUser.access_token);
-          router.push('/overview');
-          return;
+    const fetchToken = async () => {
+      if (isAuthenticated) {
+        try {
+          const token = await getAccessTokenSilently();
+          setAccessToken(token);
+          await resolveInternalUser(token);
+        } catch (e: any) {
+          console.error("Error getting access token", e);
+          setError(e);
         }
-
-        // Check for existing session
-        const oidcUser = await userManager.getUser();
-        if (oidcUser && !oidcUser.expired) {
-          setAccessToken(oidcUser.access_token);
-          await resolveInternalUser(oidcUser.access_token);
-        }
-      } catch (err) {
-        console.error("Auth initialization error", err);
-      } finally {
-        setIsLoading(false);
+      } else {
+        setUser(null);
+        setAccessToken(null);
       }
     };
-
-    initAuth();
-  }, [userManager, pathname, resolveInternalUser, router]);
+    fetchToken();
+  }, [isAuthenticated, getAccessTokenSilently, resolveInternalUser]);
 
   const login = async () => {
-    if (userManager) {
-      await userManager.signinRedirect();
-    }
+    await loginWithRedirect();
+  };
+
+  const signup = async () => {
+    await loginWithRedirect({
+      authorizationParams: {
+        screen_hint: 'signup',
+      },
+    });
   };
 
   const logout = async () => {
-    if (userManager) {
-      await userManager.signoutRedirect();
-      setUser(null);
-      setAccessToken(null);
-    }
+    await auth0Logout({
+      logoutParams: {
+        returnTo: typeof window !== 'undefined' ? window.location.origin : ""
+      }
+    });
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      isLoading, 
-      isAuthenticated: !!accessToken, 
-      login, 
+    <AuthContext.Provider value={{
+      user,
+      auth0User,
+      isLoading: isAuth0Loading || isInternalLoading,
+      isAuthenticated,
+      login,
+      signup,
       logout,
-      accessToken 
+      accessToken,
+      error: auth0Error || error
     }}>
       {children}
     </AuthContext.Provider>
+  );
+};
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const domain = process.env.NEXT_PUBLIC_AUTH0_DOMAIN || "";
+  const clientId = process.env.NEXT_PUBLIC_AUTH0_CLIENT_ID || "";
+  const audience = process.env.NEXT_PUBLIC_AUTH0_AUDIENCE || "";
+
+  return (
+    <Auth0SDKProvider
+      domain={domain}
+      clientId={clientId}
+      authorizationParams={{
+        redirect_uri: typeof window !== 'undefined' ? `${window.location.origin}/login/callback` : "",
+        audience: audience,
+        scope: "openid profile email"
+      }}
+      cacheLocation="localstorage"
+    >
+      <InternalAuthProvider>
+        {children}
+      </InternalAuthProvider>
+    </Auth0SDKProvider>
   );
 };
 

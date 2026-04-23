@@ -18,7 +18,12 @@ async def get_current_user(
     # 1. Validate external OIDC token
     payload = await oidc_provider.validate_token(token)
     
-    # 2. Resolve to internal user
+    # 2. Enrich with userinfo if claims are missing
+    if not payload.get("email") or not payload.get("name"):
+        userinfo = await oidc_provider.fetch_user_info(token)
+        payload.update(userinfo)
+    
+    # 3. Resolve to internal user
     user = await resolve_internal_user(payload, db)
     
     if not user.is_active:

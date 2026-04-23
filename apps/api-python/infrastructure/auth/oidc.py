@@ -97,7 +97,7 @@ class OIDCProvider:
             return payload
 
         except JWTError as e:
-            logger.warn("token_validation_failed", error=str(e))
+            logger.error("token_validation_failed", error=str(e), audience=self.audience, issuer=self.issuer)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=f"Invalid token: {str(e)}",
@@ -109,5 +109,23 @@ class OIDCProvider:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Internal error during token validation"
             )
+
+    async def fetch_user_info(self, token: str) -> Dict[str, Any]:
+        """
+        Fetch additional user details from the OIDC userinfo endpoint.
+        Useful when the Access Token doesn't contain profile/email claims.
+        """
+        userinfo_url = f"{self.issuer.rstrip('/')}/userinfo"
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get(
+                    userinfo_url,
+                    headers={"Authorization": f"Bearer {token}"}
+                )
+                response.raise_for_status()
+                return response.json()
+            except Exception as e:
+                logger.error("oidc_userinfo_fetch_failed", error=str(e), url=userinfo_url)
+                return {}
 
 oidc_provider = OIDCProvider()

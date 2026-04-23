@@ -1,41 +1,52 @@
-# Seed OI Database Baseline
+# Seed OI Database & Data Layer
 
-This directory contains the database schema definitions and Alembic migrations for the Seed OI canonical data model.
-
-## Initial Foundational Tables
-- **tenants**: Multi-tenant isolation at the root level.
-- **users**: Tenant-scoped users.
-- **plants**: Tenant-scoped manufacturing plants/sites.
-- **source_connections**: Track external ERP/MES connections per tenant.
-- **source_sync_runs**: Audit logs of sync operations for observability.
+This directory contains the database schema (managed by Alembic), data models, and seeding scripts for the Seed OI platform.
 
 ## Local Setup
 
-1. Ensure you have PostgreSQL running locally (e.g., via Docker).
-2. Create a local database named `seed_oi`:
-   ```bash
-   createdb seed_oi
-   ```
-3. Update `sqlalchemy.url` in `alembic.ini` to point to your local database if it differs from the default `postgresql://postgres:postgres@localhost:5432/seed_oi`.
-4. Create a virtual environment and install dependencies:
-   ```bash
-   cd db
-   uv venv
-   source .venv/bin/activate
-   uv sync
-   ```
-5. Run the initial migration to build the schema:
-   ```bash
-   alembic upgrade head
-   ```
+### 1. Start PostgreSQL
+The platform requires PostgreSQL running on port `5432`. Use Docker to start a fresh instance:
 
-## Seeding Demo Data
+```bash
+docker run --name seed-oi-db -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres
+```
 
-For local demonstrations, you can populate the canonical schema with deterministic, realistic demo data (plants, vendors, materials, inventory, orders, issues, risks, and scenarios) without needing a live ERP integration.
+### 2. Create the Database
+Create the internal `seed_oi` database:
 
-1. Ensure the database schema is up-to-date (`alembic upgrade head`).
-2. Run the seed script:
-   ```bash
-   python seed.py
-   ```
-   *Note: This script will truncate existing tables before inserting the deterministic storyline data, allowing you to easily reset the demo environment.*
+```bash
+docker exec -it seed-oi-db createdb -U postgres seed_oi
+```
+
+### 3. Initialize Schema (Migrations)
+We use `uv` for lightning-fast Python dependency management. Ensure you have `uv` installed:
+
+```bash
+cd db
+uv run alembic upgrade head
+```
+
+### 4. Seed Data
+To populate the database with demo users, plants, and scenarios:
+
+```bash
+uv run python seed.py
+```
+
+## Schema Management
+
+- **Add a new table/column**:
+  1. Update models in `apps/api-python/domain/models.py` or `apps/worker-python/domain/models.py`.
+  2. Generate a migration: `uv run alembic revision -m "description"`
+  3. Edit the generated file in `alembic/versions/`.
+  4. Apply: `uv run alembic upgrade head`
+
+## Important Tables
+
+- `tenants`: Multi-tenant isolation layer.
+- `users`: Identity and RBAC (Admin, PlantManager, etc.).
+- `plants`: Physical factory locations.
+- `source_connections`: External system integration points.
+- `issues`: AI-detected operational disruptions.
+- `risks`: Impact analysis for detected issues.
+- `scenarios`: Proposed mitigation strategies.

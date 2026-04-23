@@ -1,12 +1,37 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Shield, ArrowRight, Loader2, Factory } from 'lucide-react';
+import { Shield, ArrowRight, Loader2, Factory, AlertCircle, UserPlus } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 
 export default function LoginPage() {
-  const { login, isLoading } = useAuth();
+  const { login, signup, isLoading, error: authError } = useAuth();
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (authError) {
+      setError(authError.message);
+    }
+  }, [authError]);
+
+  const handleLogin = async () => {
+    setError(null);
+    try {
+      await login();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const handleSignup = async () => {
+    setError(null);
+    try {
+      await signup();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-[#0F172A] relative overflow-hidden">
@@ -42,26 +67,53 @@ export default function LoginPage() {
             <p className="text-slate-400 text-sm mt-1">Sign in with your corporate identity provider</p>
           </div>
 
-          <button
-            onClick={() => login()}
-            disabled={isLoading}
-            className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold py-4 rounded-2xl shadow-lg shadow-indigo-600/20 transition-all flex items-center justify-center gap-3 group disabled:opacity-70"
-          >
-            {isLoading ? (
-              <Loader2 className="animate-spin" size={20} />
-            ) : (
-              <>
-                <Shield size={20} />
-                Sign In with SSO
-                <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-              </>
+          <div className="flex flex-col gap-4">
+            <button
+              onClick={handleLogin}
+              disabled={isLoading}
+              className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold py-4 rounded-2xl shadow-lg shadow-indigo-600/20 transition-all flex items-center justify-center gap-3 group disabled:opacity-70"
+            >
+              {isLoading ? (
+                <Loader2 className="animate-spin" size={20} />
+              ) : (
+                <>
+                  <Shield size={20} />
+                  Login with SSO
+                  <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={handleSignup}
+              disabled={isLoading}
+              className="w-full bg-white/5 hover:bg-white/10 text-white font-medium py-3.5 rounded-2xl border border-white/10 transition-all flex items-center justify-center gap-3 group disabled:opacity-70"
+            >
+              <UserPlus size={18} className="text-slate-400 group-hover:text-white transition-colors" />
+              Create Account
+            </button>
+
+            {error && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex flex-col gap-2"
+              >
+                <div className="flex items-center gap-2 text-red-400 text-sm font-medium">
+                  <AlertCircle size={16} />
+                  Auth Error
+                </div>
+                <p className="text-xs text-red-300/70 leading-relaxed">
+                  {error}
+                </p>
+              </motion.div>
             )}
-          </button>
+          </div>
 
           <div className="mt-8 pt-8 border-t border-white/5 flex flex-col items-center gap-4">
             <p className="text-xs text-slate-500 flex items-center gap-2">
               <Shield size={12} />
-              Secured by OIDC Authorization Flow
+              Secured by Auth0 Enterprise Flow
             </p>
           </div>
         </div>

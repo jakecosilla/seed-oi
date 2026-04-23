@@ -5,7 +5,7 @@ from typing import List, Optional
 import uuid
 
 from infrastructure.database import get_db
-from infrastructure.security import get_current_user
+from api.dependencies.security import get_current_user
 from domain.models import User
 
 router = APIRouter(prefix="/risks", tags=["risks"])

@@ -25,11 +25,28 @@ async def analyze_downstream_impact(db: AsyncSession, issue: Issue):
     # Add more types as needed
 
 async def trace_material_shortage_impact(db: AsyncSession, issue: Issue):
-    material_id = UUID(issue.primary_entity_id)
-    
-    # 1. Material -> BOM -> Products -> WorkOrders
-    # Find all Products that use this Material
-    bom_query = select(BillOfMaterials).where(BillOfMaterials.material_id == material_id)
+    # Try to parse as UUID, otherwise treat as a code
+    material_id = None
+    try:
+        material_id = UUID(issue.primary_entity_id)
+    except (ValueError, TypeError, AttributeError):
+        pass
+
+    if material_id:
+        bom_query = select(BillOfMaterials).where(BillOfMaterials.material_id == material_id)
+    else:
+        # Fallback: Find material by code if we were given a string code like 'MAT-X-001'
+        from domain.models import Material
+        mat_query = select(Material).where(
+            and_(Material.code == issue.primary_entity_id, Material.tenant_id == issue.tenant_id)
+        )
+        mat_result = await db.execute(mat_query)
+        material = mat_result.scalars().first()
+        if not material:
+            logger.warning(f"Could not resolve material reference: {issue.primary_entity_id}")
+            return
+        material_id = material.id
+        bom_query = select(BillOfMaterials).where(BillOfMaterials.material_id == material_id)
     bom_result = await db.execute(bom_query)
     bom_items = bom_result.scalars().all()
     
