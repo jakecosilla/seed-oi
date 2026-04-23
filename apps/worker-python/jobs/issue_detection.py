@@ -7,7 +7,10 @@ from sqlalchemy import or_, and_
 
 from domain.models import Setting, InventoryBalance, PurchaseOrder, SourceConnection, Issue
 
-logger = logging.getLogger(__name__)
+from application.services.observability import ObservabilityService
+from infrastructure.logging import get_logger
+
+logger = get_logger(__name__)
 
 async def get_active_risk_rules(db: AsyncSession, tenant_id: UUID) -> dict:
     query = select(Setting).where(
@@ -127,5 +130,12 @@ async def run_issue_detection(db: AsyncSession, tenant_id: UUID):
         logger.info(f"Successfully completed issue detection for tenant {tenant_id}")
     except Exception as e:
         await db.rollback()
-        logger.error(f"Error during issue detection for tenant {tenant_id}: {e}")
+        obs = ObservabilityService(db)
+        await obs.emit_system_event(
+            event_type="issue_gen_failure",
+            message=f"Error during issue detection for tenant {tenant_id}: {str(e)}",
+            severity="error",
+            metadata={"tenant_id": str(tenant_id), "error": str(e)}
+        )
+        logger.error("issue_detection_failed", tenant_id=tenant_id, error=str(e))
         raise e

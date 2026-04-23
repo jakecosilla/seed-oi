@@ -12,6 +12,7 @@ from application.services.settings_service import (
     publish_setting,
     get_setting_history
 )
+from application.services.observability import ObservabilityService
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -39,6 +40,14 @@ async def create_new_setting(
     """
     try:
         setting = await create_setting(db, tenant_id, setting_in, user_id)
+        obs = ObservabilityService(db)
+        await obs.log_audit(
+            action="create_setting",
+            entity_type="setting",
+            entity_id=setting.id,
+            actor_id=user_id,
+            payload=setting_in.model_dump()
+        )
         return setting
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -57,6 +66,15 @@ async def update_existing_setting(
     setting = await update_setting(db, tenant_id, setting_id, setting_in, user_id)
     if not setting:
         raise HTTPException(status_code=404, detail="Setting not found")
+    
+    obs = ObservabilityService(db)
+    await obs.log_audit(
+        action="update_setting",
+        entity_type="setting",
+        entity_id=setting_id,
+        actor_id=user_id,
+        payload=setting_in.model_dump()
+    )
     return setting
 
 @router.post("/{tenant_id}/{setting_id}/publish", response_model=SettingResponse)
@@ -71,6 +89,14 @@ async def publish_existing_setting(
     setting = await publish_setting(db, tenant_id, setting_id)
     if not setting:
         raise HTTPException(status_code=404, detail="Setting not found")
+    
+    obs = ObservabilityService(db)
+    await obs.log_audit(
+        action="publish_setting",
+        entity_type="setting",
+        entity_id=setting_id,
+        payload={"status": "published"}
+    )
     return setting
 
 @router.get("/{tenant_id}/{setting_id}/history", response_model=List[SettingHistoryResponse])

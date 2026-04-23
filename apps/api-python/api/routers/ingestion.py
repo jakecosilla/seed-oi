@@ -40,6 +40,21 @@ async def upload_file(
     else:
         result = await process_excel_upload(content, file.filename, tenant_id, source_connection_id, entity_type, db)
 
+    if result.failed_rows > 0:
+        from application.services.observability import ObservabilityService
+        obs = ObservabilityService(db)
+        await obs.emit_system_event(
+            event_type="ingestion_failure",
+            message=f"Ingestion for {file.filename} had {result.failed_rows} failures.",
+            severity="warning",
+            metadata={
+                "filename": result.filename,
+                "total_rows": result.total_rows,
+                "failed_rows": result.failed_rows,
+                "validation_messages": [m.dict() for m in result.validation_messages]
+            }
+        )
+
     return IngestionSummary(
         filename=result.filename,
         total_rows=result.total_rows,

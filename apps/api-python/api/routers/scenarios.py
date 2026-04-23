@@ -109,3 +109,22 @@ async def get_scenario_comparison(
             )
         ]
     )
+
+@router.post("/{scenario_id}/execute")
+async def execute_scenario(
+    scenario_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Execute a chosen scenario. This is a major system action that requires auditing.
+    """
+    # Logic to trigger actual execution would go here
+    from application.services.observability import ObservabilityService
+    obs = ObservabilityService(db)
+    await obs.log_audit(
+        action="execute_scenario",
+        entity_type="scenario",
+        entity_id=scenario_id,
+        payload={"execution_status": "triggered"}
+    )
+    return {"status": "execution_triggered", "scenario_id": scenario_id}

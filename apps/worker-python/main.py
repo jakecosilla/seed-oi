@@ -1,16 +1,10 @@
 import asyncio
-import logging
-import sys
-
 from infrastructure.config import get_settings
+from infrastructure.logging import setup_logging, get_logger
 
-# Configure basic logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)]
-)
-logger = logging.getLogger("worker")
+# Initialize structured logging
+setup_logging()
+logger = get_logger("worker")
 
 async def main():
     settings = get_settings()
