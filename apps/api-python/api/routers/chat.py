@@ -6,6 +6,8 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 from infrastructure.database import get_db
+from infrastructure.security import get_current_user
+from domain.models import User
 
 from application.services.observability import ObservabilityService
 from infrastructure.logging import get_logger
@@ -27,9 +29,22 @@ class ChatResponse(BaseModel):
 @router.post("/query", response_model=ChatResponse)
 async def chat_query(
     request: ChatRequest,
-    tenant_id: uuid.UUID = Query(uuid.UUID('00000000-0000-0000-0000-000000000000')),
-    db: AsyncSession = Depends(get_db)
+    tenant_id: uuid.UUID = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
+    from fastapi import HTTPException
+    if tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Not authorized for this tenant")
+    
+    # Plant-level restriction check (if plant_id provided in context)
+    if request.context and "plant_id" in request.context:
+        from infrastructure.security import get_user_plant_ids
+        allowed_plants = await get_user_plant_ids(current_user, db)
+        req_plant = uuid.UUID(request.context["plant_id"])
+        if req_plant not in allowed_plants:
+             raise HTTPException(status_code=403, detail="Not authorized for this plant")
+
     obs = ObservabilityService(db)
     await obs.emit_system_event(
         event_type="assistant_request",

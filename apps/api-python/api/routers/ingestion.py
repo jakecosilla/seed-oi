@@ -4,6 +4,8 @@ from typing import List, Dict, Any
 from application.services.ingestion_service import process_csv_upload, process_excel_upload
 from infrastructure.database import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
+from infrastructure.security import get_current_user, require_role
+from domain.models import User
 
 router = APIRouter(prefix="/ingestion", tags=["ingestion"])
 
@@ -25,11 +27,14 @@ async def upload_file(
     tenant_id: str = Form(...),
     source_connection_id: str = Form(...),
     entity_type: str = Form(...),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(["admin", "operator"]))
 ) -> IngestionSummary:
     """
     Upload a CSV or Excel file to parse into staging raw_source_payloads.
     """
+    if tenant_id != str(current_user.tenant_id):
+        raise HTTPException(status_code=403, detail="Not authorized for this tenant")
     if not file.filename.endswith(('.csv', '.xlsx')):
         raise HTTPException(status_code=400, detail="Only CSV and XLSX files are supported.")
 

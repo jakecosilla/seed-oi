@@ -1,9 +1,50 @@
 import uuid
+import sqlalchemy as sa
 from sqlalchemy import Column, String, DateTime, func, JSON, Float, Integer, Numeric, Text, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
+
+class Tenant(Base):
+    __tablename__ = 'tenants'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+class User(Base):
+    __tablename__ = 'users'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id'), nullable=False)
+    email = Column(String, nullable=False, unique=True)
+    name = Column(String, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    role = Column(String, nullable=False, default='viewer') # admin, operator, viewer
+    is_active = Column(sa.Boolean(), server_default='true', nullable=False)
+    external_id = Column(String, unique=True, index=True, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+# Many-to-many for plant-level access restrictions
+user_plants = sa.Table(
+    'user_plants',
+    Base.metadata,
+    Column('user_id', UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), primary_key=True),
+    Column('plant_id', UUID(as_uuid=True), ForeignKey('plants.id', ondelete='CASCADE'), primary_key=True)
+)
+
+class Plant(Base):
+    __tablename__ = 'plants'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id'), nullable=False)
+    name = Column(String, nullable=False)
+    location = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 class RawSourcePayload(Base):
     __tablename__ = 'raw_source_payloads'
