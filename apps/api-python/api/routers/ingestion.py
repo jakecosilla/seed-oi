@@ -1,7 +1,9 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List, Dict, Any
 from application.services.ingestion_service import process_csv_upload, process_excel_upload
+from infrastructure.database import get_db
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/ingestion", tags=["ingestion"])
 
@@ -22,7 +24,8 @@ async def upload_file(
     file: UploadFile = File(...),
     tenant_id: str = Form(...),
     source_connection_id: str = Form(...),
-    entity_type: str = Form(...)
+    entity_type: str = Form(...),
+    db: AsyncSession = Depends(get_db)
 ) -> IngestionSummary:
     """
     Upload a CSV or Excel file to parse into staging raw_source_payloads.
@@ -33,9 +36,9 @@ async def upload_file(
     content = await file.read()
     
     if file.filename.endswith('.csv'):
-        result = await process_csv_upload(content, file.filename, tenant_id, source_connection_id, entity_type)
+        result = await process_csv_upload(content, file.filename, tenant_id, source_connection_id, entity_type, db)
     else:
-        result = await process_excel_upload(content, file.filename, tenant_id, source_connection_id, entity_type)
+        result = await process_excel_upload(content, file.filename, tenant_id, source_connection_id, entity_type, db)
 
     return IngestionSummary(
         filename=result.filename,

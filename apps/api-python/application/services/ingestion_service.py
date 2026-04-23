@@ -2,6 +2,8 @@ import csv
 import io
 import logging
 from typing import List, Dict, Any
+from sqlalchemy.ext.asyncio import AsyncSession
+from domain.models import RawSourcePayload
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +16,7 @@ class IngestionResult:
         self.validation_messages = []
         self.file_metadata = {}
 
-async def process_csv_upload(content: bytes, filename: str, tenant_id: str, source_id: str, entity_type: str) -> IngestionResult:
+async def process_csv_upload(content: bytes, filename: str, tenant_id: str, source_id: str, entity_type: str, db: AsyncSession) -> IngestionResult:
     result = IngestionResult(filename=filename)
     result.file_metadata = {
         "size_bytes": len(content),
@@ -37,18 +39,28 @@ async def process_csv_upload(content: bytes, filename: str, tenant_id: str, sour
                 result.validation_messages.append({"row_index": idx, "message": "Row is completely empty."})
                 continue
                 
-            # TODO: Integrate SQLAlchemy Repository to save row to `raw_source_payloads` table
-            # Example: db.add(RawSourcePayload(tenant_id=tenant_id, raw_payload=row, status="pending"))
+            # Save row to `raw_source_payloads` table
+            payload = RawSourcePayload(
+                tenant_id=tenant_id,
+                source_connection_id=source_id,
+                entity_type=entity_type,
+                raw_payload=row,
+                status="pending"
+            )
+            db.add(payload)
             
             result.accepted_rows += 1
+            
+        await db.commit()
     except Exception as e:
+        await db.rollback()
         logger.error(f"Failed to parse CSV file {filename}: {e}")
         result.validation_messages.append({"row_index": 0, "message": f"File parsing error: {str(e)}"})
         
     logger.info(f"Processed CSV {filename}: {result.accepted_rows} accepted, {result.failed_rows} failed.")
     return result
 
-async def process_excel_upload(content: bytes, filename: str, tenant_id: str, source_id: str, entity_type: str) -> IngestionResult:
+async def process_excel_upload(content: bytes, filename: str, tenant_id: str, source_id: str, entity_type: str, db: AsyncSession) -> IngestionResult:
     import openpyxl
     result = IngestionResult(filename=filename)
     result.file_metadata = {
@@ -78,10 +90,21 @@ async def process_excel_upload(content: bytes, filename: str, tenant_id: str, so
             # Map row to dictionary
             row_dict = dict(zip(headers, row))
             
-            # TODO: Integrate SQLAlchemy Repository to save to `raw_source_payloads` table
+            # Save to `raw_source_payloads` table
+            payload = RawSourcePayload(
+                tenant_id=tenant_id,
+                source_connection_id=source_id,
+                entity_type=entity_type,
+                raw_payload=row_dict,
+                status="pending"
+            )
+            db.add(payload)
             
             result.accepted_rows += 1
+            
+        await db.commit()
     except Exception as e:
+        await db.rollback()
         logger.error(f"Failed to parse Excel file {filename}: {e}")
         result.validation_messages.append({"row_index": 0, "message": f"File parsing error: {str(e)}"})
         
