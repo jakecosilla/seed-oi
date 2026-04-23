@@ -7,6 +7,11 @@ from typing import List, Optional
 
 from infrastructure.database import get_db
 
+from application.services.observability import ObservabilityService
+from infrastructure.logging import get_logger
+
+logger = get_logger(__name__)
+
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 class ChatRequest(BaseModel):
@@ -25,6 +30,13 @@ async def chat_query(
     tenant_id: uuid.UUID = Query(uuid.UUID('00000000-0000-0000-0000-000000000000')),
     db: AsyncSession = Depends(get_db)
 ):
+    obs = ObservabilityService(db)
+    await obs.emit_system_event(
+        event_type="assistant_request",
+        message=f"Chat query: {request.message[:50]}...",
+        severity="info",
+        metadata={"query": request.message, "context": request.context}
+    )
     msg = request.message.lower()
     now = datetime.datetime.now().strftime("%H:%M:%S")
     

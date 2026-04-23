@@ -2,15 +2,21 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import uvicorn
+from asgi_correlation_id import CorrelationIdMiddleware
 
 from api.routers import health, system, ingestion, sources, events, settings as settings_router, overview, risks, scenarios, chat
 from infrastructure.config import get_settings
+from infrastructure.logging import setup_logging, get_logger
+
+# Initialize structured logging early
+setup_logging()
+logger = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup actions (e.g., connect to DB)
+    logger.info("service_starting", version="0.1.0")
     yield
-    # Shutdown actions (e.g., disconnect from DB)
+    logger.info("service_shutting_down")
 
 def create_app() -> FastAPI:
     settings_conf = get_settings()
@@ -23,6 +29,7 @@ def create_app() -> FastAPI:
         redoc_url="/redoc" if settings_conf.debug else None,
     )
 
+    app.add_middleware(CorrelationIdMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings_conf.cors_origins,

@@ -140,3 +140,27 @@ class Recommendation(Base, TraceableMixin):
     action_details = Column(JSON, nullable=True)
     confidence_score = Column(Float, nullable=True)
     rank = Column(Integer, nullable=True)
+
+class AuditLog(Base):
+    __tablename__ = 'audit_logs'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    action = Column(String, nullable=False)
+    entity_type = Column(String, nullable=True)
+    entity_id = Column(String, nullable=True)
+    actor_id = Column(String, nullable=True)
+    actor_name = Column(String, nullable=True)
+    payload = Column(JSON, nullable=True)
+    correlation_id = Column(String, nullable=True)
+
+class SystemEvent(Base):
+    __tablename__ = 'system_events'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    event_type = Column(String, nullable=False)
+    severity = Column(String, nullable=False, default='info')
+    message = Column(Text, nullable=True)
+    metadata_json = Column(JSON, nullable=True)
+    correlation_id = Column(String, nullable=True)
