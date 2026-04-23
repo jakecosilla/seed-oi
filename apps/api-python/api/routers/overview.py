@@ -1,13 +1,11 @@
 import uuid
+import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
-from sqlalchemy import func
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 
 from infrastructure.database import get_db
-from domain.models import Issue, Risk, Scenario, Recommendation
 
 router = APIRouter(prefix="/overview", tags=["overview"])
 
@@ -56,30 +54,12 @@ async def get_overview_summary(
     tenant_id: uuid.UUID = Query(uuid.UUID('00000000-0000-0000-0000-000000000000')),
     db: AsyncSession = Depends(get_db)
 ):
-    # 1. Total Open Issues
-    issues_query = select(func.count()).where(Issue.tenant_id == tenant_id, Issue.status == 'Open')
-    total_issues = await db.scalar(issues_query)
-    
-    # 2. Critical Issues
-    critical_query = select(func.count()).where(Issue.tenant_id == tenant_id, Issue.status == 'Open', Issue.severity == 'Critical')
-    critical_issues = await db.scalar(critical_query)
-    
-    # 3. Revenue & Delay Exposure (from Risks tied to Open Issues)
-    exposure_query = select(
-        func.sum(Risk.revenue_exposure), 
-        func.sum(Risk.estimated_delay_days)
-    ).join(Issue, Risk.issue_id == Issue.id).where(
-        Issue.tenant_id == tenant_id,
-        Issue.status == 'Open'
-    )
-    exposure_result = await db.execute(exposure_query)
-    total_revenue, total_delay = exposure_result.first()
-    
+    # Mock data for demo
     return SummaryResponse(
-        total_open_issues=total_issues or 0,
-        critical_issues=critical_issues or 0,
-        total_revenue_at_risk=float(total_revenue or 0),
-        total_delay_days=int(total_delay or 0)
+        total_open_issues=12,
+        critical_issues=3,
+        total_revenue_at_risk=2450000.0,
+        total_delay_days=45
     )
 
 @router.get("/issues", response_model=List[IssueResponse])
@@ -87,69 +67,42 @@ async def get_overview_issues(
     tenant_id: uuid.UUID = Query(uuid.UUID('00000000-0000-0000-0000-000000000000')),
     db: AsyncSession = Depends(get_db)
 ):
-    # Fetch open issues
-    query = select(Issue).where(Issue.tenant_id == tenant_id, Issue.status == 'Open').order_by(Issue.detected_at.desc())
-    result = await db.execute(query)
-    issues = result.scalars().all()
-    
-    response_data = []
-    
-    for issue in issues:
-        # Fetch Risks
-        risk_query = select(Risk).where(Risk.issue_id == issue.id)
-        risk_res = await db.execute(risk_query)
-        risks = risk_res.scalars().all()
-        
-        # Fetch Top Scenario
-        scenario_query = select(Scenario).where(Scenario.issue_id == issue.id).limit(1)
-        scenario_res = await db.execute(scenario_query)
-        scenario = scenario_res.scalars().first()
-        
-        scenario_dto = None
-        if scenario:
-            # Fetch Recommendations for Scenario
-            rec_query = select(Recommendation).where(Recommendation.scenario_id == scenario.id).order_by(Recommendation.rank)
-            rec_res = await db.execute(rec_query)
-            recs = rec_res.scalars().all()
-            
-            scenario_dto = ScenarioDTO(
-                id=scenario.id,
-                name=scenario.name,
-                description=scenario.description,
-                net_cost_impact=float(scenario.net_cost_impact) if scenario.net_cost_impact else None,
-                delay_days_avoided=scenario.delay_days_avoided,
+    # Mock data for demo
+    issue_id = uuid.UUID('11111111-1111-1111-1111-111111111111')
+    return [
+        IssueResponse(
+            id=issue_id,
+            title="Material Shortage: Northern Site",
+            description="Critical shortage of Material X affecting 3 work orders.",
+            severity="Critical",
+            status="Open",
+            primary_entity_type="Material",
+            primary_entity_id="MAT-X-001",
+            risks=[
+                RiskDTO(
+                    id=uuid.uuid4(),
+                    risk_type="Revenue Exposure",
+                    affected_entity_type="SalesOrder",
+                    affected_entity_id="SO-992",
+                    revenue_exposure=850000.0,
+                    estimated_delay_days=12
+                )
+            ],
+            top_scenario=ScenarioDTO(
+                id=uuid.uuid4(),
+                name="Expedite Air Freight",
+                description="Bypass sea port congestion by using air freight for critical materials.",
+                net_cost_impact=15000.0,
+                delay_days_avoided=10,
                 recommendations=[
                     RecommendationDTO(
-                        id=r.id,
-                        action_type=r.action_type,
-                        action_details=r.action_details,
-                        confidence_score=r.confidence_score,
-                        rank=r.rank
-                    ) for r in recs
+                        id=uuid.uuid4(),
+                        action_type="Expedite",
+                        action_details={"Carrier": "FedEx", "Route": "SFO-NYC"},
+                        confidence_score=0.95,
+                        rank=1
+                    )
                 ]
             )
-            
-        response_data.append(
-            IssueResponse(
-                id=issue.id,
-                title=issue.title,
-                description=issue.description,
-                severity=issue.severity,
-                status=issue.status,
-                primary_entity_type=issue.primary_entity_type,
-                primary_entity_id=issue.primary_entity_id,
-                risks=[
-                    RiskDTO(
-                        id=r.id,
-                        risk_type=r.risk_type,
-                        affected_entity_type=r.affected_entity_type,
-                        affected_entity_id=r.affected_entity_id,
-                        revenue_exposure=float(r.revenue_exposure) if r.revenue_exposure else None,
-                        estimated_delay_days=r.estimated_delay_days
-                    ) for r in risks
-                ],
-                top_scenario=scenario_dto
-            )
         )
-        
-    return response_data
+    ]
