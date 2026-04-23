@@ -121,3 +121,22 @@ class Risk(Base, TraceableMixin):
     estimated_delay_days = Column(Integer, nullable=True)
     revenue_exposure = Column(Numeric, nullable=True)
     cost_exposure = Column(Numeric, nullable=True)
+
+class Scenario(Base, TraceableMixin):
+    __tablename__ = 'scenarios'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    issue_id = Column(UUID(as_uuid=True), ForeignKey('issues.id'), nullable=False)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    status = Column(String, nullable=False, default='Proposed') # Proposed, Accepted, Rejected
+    net_cost_impact = Column(Numeric, nullable=True)
+    delay_days_avoided = Column(Integer, nullable=True)
+
+class Recommendation(Base, TraceableMixin):
+    __tablename__ = 'recommendations'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    scenario_id = Column(UUID(as_uuid=True), ForeignKey('scenarios.id'), nullable=False)
+    action_type = Column(String, nullable=False) # Expedite, Reallocate, Reschedule, Monitor
+    action_details = Column(JSON, nullable=True)
+    confidence_score = Column(Float, nullable=True)
+    rank = Column(Integer, nullable=True)
