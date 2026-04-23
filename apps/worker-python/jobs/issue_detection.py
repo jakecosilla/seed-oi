@@ -53,7 +53,9 @@ async def detect_shortages(db: AsyncSession, tenant_id: UUID, rules: dict):
             description=f"Inventory for material {balance.material_id} is below allocated quantity.",
             severity=severity,
             status="Open",
-            source_system="Seed OI Analytical Engine"
+            source_system="Seed OI Analytical Engine",
+            primary_entity_type="Material",
+            primary_entity_id=str(balance.material_id)
         )
         db.add(issue)
 
@@ -75,7 +77,9 @@ async def detect_delays(db: AsyncSession, tenant_id: UUID, rules: dict):
             description=f"PO {po.order_number} is past its expected delivery date ({po.expected_delivery_date}).",
             severity="Warning",
             status="Open",
-            source_system="Seed OI Analytical Engine"
+            source_system="Seed OI Analytical Engine",
+            primary_entity_type="PurchaseOrder",
+            primary_entity_id=str(po.id)
         )
         db.add(issue)
 
@@ -101,7 +105,9 @@ async def detect_stale_sources(db: AsyncSession, tenant_id: UUID, rules: dict):
             description=f"Source {source.name} has not successfully synced in over 24 hours.",
             severity="Warning",
             status="Open",
-            source_system="Seed OI Analytical Engine"
+            source_system="Seed OI Analytical Engine",
+            primary_entity_type="SourceConnection",
+            primary_entity_id=str(source.id)
         )
         db.add(issue)
 
