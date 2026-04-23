@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import uvicorn
 
-from api.routers import health, system, ingestion, sources, events, settings
+from api.routers import health, system, ingestion, sources, events, settings, overview, risks, scenarios, chat
 from infrastructure.config import get_settings
 
 @asynccontextmanager
@@ -13,19 +13,19 @@ async def lifespan(app: FastAPI):
     # Shutdown actions (e.g., disconnect from DB)
 
 def create_app() -> FastAPI:
-    settings = get_settings()
+    settings_conf = get_settings()
     
     app = FastAPI(
-        title=settings.app_name,
-        version=settings.app_version,
+        title=settings_conf.app_name,
+        version=settings_conf.app_version,
         lifespan=lifespan,
-        docs_url="/docs" if settings.debug else None,
-        redoc_url="/redoc" if settings.debug else None,
+        docs_url="/docs" if settings_conf.debug else None,
+        redoc_url="/redoc" if settings_conf.debug else None,
     )
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origins,
+        allow_origins=settings_conf.cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -38,6 +38,10 @@ def create_app() -> FastAPI:
     app.include_router(sources.router)
     app.include_router(events.router)
     app.include_router(settings.router)
+    app.include_router(overview.router)
+    app.include_router(risks.router)
+    app.include_router(scenarios.router)
+    app.include_router(chat.router)
 
     return app
 
