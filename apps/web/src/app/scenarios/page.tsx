@@ -8,6 +8,7 @@ import { fetchApi } from '@/lib/api-client';
 import { Activity, ArrowRight, ShieldCheck, Search, Clock, RefreshCw, Zap, TableProperties } from 'lucide-react';
 import { AIAssistant } from '@/components/layout/AIAssistant';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { useAuth } from '@/providers/AuthProvider';
 
 export interface IssueSimple {
   id: string;
@@ -48,23 +49,26 @@ export interface ScenarioComparison {
   options: Scenario[];
 }
 
-const fetchEvaluableIssues = async () => fetchApi<IssueSimple[]>('/scenarios/issues');
-const fetchComparison = async (issueId: string) => fetchApi<ScenarioComparison>(`/scenarios/${issueId}/comparison`);
-
 export default function ScenariosPage() {
+  const { user, accessToken } = useAuth();
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
 
   const { data: issues = [] } = useQuery({
-    queryKey: ['scenarios-issues'],
-    queryFn: fetchEvaluableIssues,
+    queryKey: ['scenarios-issues', user?.tenant_id],
+    queryFn: () => fetchApi<IssueSimple[]>(`/scenarios/issues?tenant_id=${user?.tenant_id}`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    }),
+    enabled: !!user && !!accessToken,
     refetchInterval: 15000,
   });
 
   const { data: comparison, isFetching: isComparisonFetching } = useQuery({
-    queryKey: ['scenarios-comparison', selectedIssueId],
-    queryFn: () => fetchComparison(selectedIssueId!),
-    enabled: !!selectedIssueId,
+    queryKey: ['scenarios-comparison', selectedIssueId, user?.tenant_id],
+    queryFn: () => fetchApi<ScenarioComparison>(`/scenarios/${selectedIssueId}/comparison?tenant_id=${user?.tenant_id}`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    }),
+    enabled: !!selectedIssueId && !!user && !!accessToken,
     refetchInterval: 15000, // Near-real-time refresh
   });
 

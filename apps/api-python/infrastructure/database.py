@@ -15,10 +15,6 @@ AsyncSessionLocal = async_sessionmaker(
     bind=engine, class_=AsyncSession, expire_on_commit=False
 )
 
-async def get_db() -> AsyncGenerator[Optional[AsyncSession], None]:
-    try:
-        async with AsyncSessionLocal() as session:
-            yield session
-    except Exception:
-        # For demo purposes, we allow the app to continue without a DB
-        yield None
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    async with AsyncSessionLocal() as session:
+        yield session

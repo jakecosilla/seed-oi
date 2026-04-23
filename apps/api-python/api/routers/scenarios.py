@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 
 from infrastructure.database import get_db
-from infrastructure.security import get_current_user, require_role
+from api.dependencies.security import get_current_user, require_role
 from domain.models import User
 
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])

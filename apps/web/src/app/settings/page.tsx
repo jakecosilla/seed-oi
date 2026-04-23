@@ -49,7 +49,7 @@ const NAV_ITEMS = [
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, accessToken } = useAuth();
   const [activeTab, setActiveTab] = useState('risk_rules');
   const [localDraft, setLocalDraft] = useState<RiskRulesPayload | null>(null);
 
@@ -58,8 +58,10 @@ export default function SettingsPage() {
   // Fetch Risk Rules Setting
   const { data: settings = [], isLoading } = useQuery({
     queryKey: ['settings', tenantId, 'risk_rules'],
-    queryFn: () => fetchApi<SettingResponse[]>(`/settings/${tenantId}?category=risk_rules`),
-    enabled: !!user,
+    queryFn: () => fetchApi<SettingResponse[]>(`/settings/${tenantId}?category=risk_rules`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    }),
+    enabled: !!user && !!accessToken,
   });
 
   const currentSetting = settings[0]; // Assuming one global risk rule setting for simplicity
@@ -78,13 +80,19 @@ export default function SettingsPage() {
   // Mutations
   const saveDraftMutation = useMutation({
     mutationFn: (payload: RiskRulesPayload) => {
+      const options = {
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+        body: JSON.stringify({ payload }),
+      };
+      
       if (currentSetting) {
         return fetchApi(`/settings/${tenantId}/${currentSetting.id}`, {
+          ...options,
           method: 'PUT',
-          body: JSON.stringify({ payload }),
         });
       } else {
         return fetchApi(`/settings/${tenantId}`, {
+          ...options,
           method: 'POST',
           body: JSON.stringify({ category: 'risk_rules', payload }),
         });
@@ -96,7 +104,10 @@ export default function SettingsPage() {
   });
 
   const publishMutation = useMutation({
-    mutationFn: (settingId: string) => fetchApi(`/settings/${tenantId}/${settingId}/publish`, { method: 'POST' }),
+    mutationFn: (settingId: string) => fetchApi(`/settings/${tenantId}/${settingId}/publish`, { 
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings', tenantId, 'risk_rules'] });
     }

@@ -1,7 +1,13 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
+import uuid
+
+from infrastructure.database import get_db
+from api.dependencies.security import get_current_user
+from domain.models import User
 
 router = APIRouter(prefix="/sources", tags=["sources"])
 
@@ -93,18 +99,38 @@ mock_validation_errors = [
 
 # Endpoints
 @router.get("", response_model=List[SourceConnectionStatus])
-async def list_sources():
+async def list_sources(
+    tenant_id: uuid.UUID = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """List all source connections with their health and completeness metrics."""
+    if tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Not authorized for this tenant")
     return mock_sources
 
 @router.get("/{source_id}/history", response_model=List[SyncHistoryEntry])
-async def get_sync_history(source_id: str):
+async def get_sync_history(
+    source_id: str,
+    tenant_id: uuid.UUID = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """Get recent sync runs for a source."""
+    if tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Not authorized for this tenant")
     return mock_sync_history
 
 @router.get("/{source_id}/errors", response_model=List[ValidationErrorDetail])
-async def get_source_errors(source_id: str):
+async def get_source_errors(
+    source_id: str,
+    tenant_id: uuid.UUID = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """View active validation errors for a source."""
+    if tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Not authorized for this tenant")
     return mock_validation_errors
 
 @router.post("/{source_id}/retry-sync")

@@ -29,6 +29,9 @@ def create_app() -> FastAPI:
         redoc_url="/redoc" if settings_conf.debug else None,
     )
 
+    # IMPORTANT: In Starlette, middleware is processed in REVERSE order of addition.
+    # CORSMiddleware must be added LAST so it is the OUTERMOST wrapper,
+    # ensuring CORS headers are always present on every response.
     app.add_middleware(CorrelationIdMiddleware)
     app.add_middleware(
         CORSMiddleware,
