@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fetchApi } from '@/lib/api-client';
 import { Card, CardContent } from '@/components/ui/Card';
 import { SidePanel } from '@/components/ui/SidePanel';
 import { Badge } from '@/components/ui/Badge';
@@ -36,50 +38,47 @@ type SourceError = {
 };
 
 export default function SourcesPage() {
-  const [sources, setSources] = useState<SourceConnection[]>([]);
-  const [selectedSource, setSelectedSource] = useState<SourceConnection | null>(null);
-  const [history, setHistory] = useState<SyncHistory[]>([]);
-  const [errors, setErrors] = useState<SourceError[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
 
   // Fetch Sources list
-  useEffect(() => {
-    fetch('http://localhost:8000/sources')
-      .then((res) => res.json())
-      .then((data) => {
-        setSources(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error('Failed to fetch sources', err);
-        setLoading(false);
-      });
-  }, []);
+  const { data: sources = [], isLoading: loadingSources } = useQuery({
+    queryKey: ['sources'],
+    queryFn: () => fetchApi<SourceConnection[]>('/sources'),
+  });
 
   // Fetch details when source is selected
-  useEffect(() => {
-    if (!selectedSource) return;
+  const { data: history = [] } = useQuery({
+    queryKey: ['sources', selectedSourceId, 'history'],
+    queryFn: () => fetchApi<SyncHistory[]>(`/sources/${selectedSourceId}/history`),
+    enabled: !!selectedSourceId,
+  });
 
-    fetch(`http://localhost:8000/sources/${selectedSource.id}/history`)
-      .then((res) => res.json())
-      .then((data) => setHistory(data))
-      .catch(console.error);
+  const { data: errors = [] } = useQuery({
+    queryKey: ['sources', selectedSourceId, 'errors'],
+    queryFn: () => fetchApi<SourceError[]>(`/sources/${selectedSourceId}/errors`),
+    enabled: !!selectedSourceId,
+  });
 
-    fetch(`http://localhost:8000/sources/${selectedSource.id}/errors`)
-      .then((res) => res.json())
-      .then((data) => setErrors(data))
-      .catch(console.error);
-  }, [selectedSource]);
-
-  const handleRetrySync = async () => {
-    if (!selectedSource) return;
-    try {
-      await fetch(`http://localhost:8000/sources/${selectedSource.id}/retry-sync`, { method: 'POST' });
+  const retrySyncMutation = useMutation({
+    mutationFn: (sourceId: string) => fetchApi(`/sources/${sourceId}/retry-sync`, { method: 'POST' }),
+    onSuccess: () => {
       alert('Sync retry queued.');
-    } catch (err) {
+      queryClient.invalidateQueries({ queryKey: ['sources'] });
+    },
+    onError: (err) => {
       console.error(err);
+      alert('Failed to retry sync.');
+    }
+  });
+
+  const handleRetrySync = () => {
+    if (selectedSourceId) {
+      retrySyncMutation.mutate(selectedSourceId);
     }
   };
+
+  const selectedSource = sources.find(s => s.id === selectedSourceId) || null;
 
   const activeCount = sources.filter(s => s.status === 'active').length;
   const warningCount = sources.filter(s => s.status === 'warning').length;
@@ -143,11 +142,11 @@ export default function SourcesPage() {
 
         {/* Source List */}
         <div className="flex flex-col gap-4">
-          {loading ? (
+          {loadingSources ? (
             <p className="text-slate-500 text-sm">Loading sources...</p>
           ) : (
             sources.map(source => (
-              <div key={source.id} onClick={() => setSelectedSource(source)} className="cursor-pointer">
+              <div key={source.id} onClick={() => setSelectedSourceId(source.id)} className="cursor-pointer">
                 <Card className={`transition-all ${selectedSource?.id === source.id ? 'ring-2 ring-blue-500 border-blue-500' : 'hover:border-slate-300'}`}>
                   <CardContent>
                     <div className="flex items-center justify-between mb-6">
@@ -158,14 +157,14 @@ export default function SourcesPage() {
                         <span className="font-semibold text-slate-900">{source.name}</span>
                         <Badge variant={
                           source.status === 'active' ? 'success' :
-                          source.status === 'warning' ? 'warning' : 'danger'
+                            source.status === 'warning' ? 'warning' : 'danger'
                         }>{source.status}</Badge>
                       </div>
                       <div>
                         <Badge variant="info">{source.system_type}</Badge>
                       </div>
                     </div>
-                    
+
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
                       <div className="flex flex-col gap-1">
                         <span className="text-xs text-slate-500 uppercase tracking-wider">Last Synced</span>
@@ -205,7 +204,7 @@ export default function SourcesPage() {
               <p className="text-sm text-slate-500">Source details and health</p>
             </div>
 
-            <button 
+            <button
               className="flex items-center justify-center gap-2 w-full py-2.5 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors shadow-sm"
               onClick={handleRetrySync}
             >
