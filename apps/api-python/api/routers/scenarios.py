@@ -6,6 +6,8 @@ from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 
 from infrastructure.database import get_db
+from infrastructure.security import get_current_user, require_role
+from domain.models import User
 
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])
 
@@ -45,9 +47,12 @@ class ScenarioComparisonDTO(BaseModel):
 
 @router.get("/issues", response_model=List[IssueSimpleDTO])
 async def get_evaluable_issues(
-    tenant_id: uuid.UUID = Query(uuid.UUID('00000000-0000-0000-0000-000000000000')),
-    db: AsyncSession = Depends(get_db)
+    tenant_id: uuid.UUID = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
+    if tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Not authorized for this tenant")
     return [
         IssueSimpleDTO(
             id=uuid.UUID('11111111-1111-1111-1111-111111111111'),
@@ -60,9 +65,12 @@ async def get_evaluable_issues(
 @router.get("/{issue_id}/comparison", response_model=ScenarioComparisonDTO)
 async def get_scenario_comparison(
     issue_id: uuid.UUID,
-    tenant_id: uuid.UUID = Query(uuid.UUID('00000000-0000-0000-0000-000000000000')),
-    db: AsyncSession = Depends(get_db)
+    tenant_id: uuid.UUID = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
+    if tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Not authorized for this tenant")
     return ScenarioComparisonDTO(
         issue_id=issue_id,
         issue_title="Material Shortage: Northern Site",
@@ -113,7 +121,8 @@ async def get_scenario_comparison(
 @router.post("/{scenario_id}/execute")
 async def execute_scenario(
     scenario_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(["admin", "operator"]))
 ):
     """
     Execute a chosen scenario. This is a major system action that requires auditing.

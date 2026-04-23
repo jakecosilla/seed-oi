@@ -9,6 +9,8 @@ export const metadata: Metadata = {
   description: 'Visual operations intelligence platform for manufacturers.',
 };
 
+import { AuthProvider } from '@/providers/AuthProvider';
+
 export default function RootLayout({
   children,
 }: {
@@ -18,10 +20,12 @@ export default function RootLayout({
     <html lang="en">
       <body className="flex flex-col h-full">
         <QueryProvider>
-          <TopNav />
-          <PageContainer>
-            {children}
-          </PageContainer>
+          <AuthProvider>
+            <TopNav />
+            <PageContainer>
+              {children}
+            </PageContainer>
+          </AuthProvider>
         </QueryProvider>
       </body>
     </html>

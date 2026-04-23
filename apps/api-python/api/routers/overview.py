@@ -6,6 +6,9 @@ from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 
 from infrastructure.database import get_db
+from api.dependencies.security import get_current_user
+from application.security.authorization import auth_service
+from domain.models import User
 
 router = APIRouter(prefix="/overview", tags=["overview"])
 
@@ -51,9 +54,11 @@ class IssueResponse(BaseModel):
 
 @router.get("/summary", response_model=SummaryResponse)
 async def get_overview_summary(
-    tenant_id: uuid.UUID = Query(uuid.UUID('00000000-0000-0000-0000-000000000000')),
-    db: AsyncSession = Depends(get_db)
+    tenant_id: uuid.UUID = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
+    auth_service.check_tenant_access(current_user, tenant_id)
     # Mock data for demo
     return SummaryResponse(
         total_open_issues=12,
@@ -64,9 +69,11 @@ async def get_overview_summary(
 
 @router.get("/issues", response_model=List[IssueResponse])
 async def get_overview_issues(
-    tenant_id: uuid.UUID = Query(uuid.UUID('00000000-0000-0000-0000-000000000000')),
-    db: AsyncSession = Depends(get_db)
+    tenant_id: uuid.UUID = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
+    auth_service.check_tenant_access(current_user, tenant_id)
     # Mock data for demo
     issue_id = uuid.UUID('11111111-1111-1111-1111-111111111111')
     return [

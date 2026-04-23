@@ -1,10 +1,12 @@
-import uuid
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from typing import List, Optional
+import uuid
 
 from infrastructure.database import get_db
+from infrastructure.security import get_current_user
+from domain.models import User
 
 router = APIRouter(prefix="/risks", tags=["risks"])
 
@@ -30,9 +32,12 @@ class BottleneckItem(BaseModel):
 
 @router.get("/summary", response_model=RiskSummaryResponse)
 async def get_risk_summary(
-    tenant_id: uuid.UUID = Query(uuid.UUID('00000000-0000-0000-0000-000000000000')),
-    db: AsyncSession = Depends(get_db)
+    tenant_id: uuid.UUID = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
+    if tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Not authorized for this tenant")
     return RiskSummaryResponse(
         total_active_risks=24,
         critical_bottlenecks=5,
@@ -42,9 +47,12 @@ async def get_risk_summary(
 
 @router.get("/timeline", response_model=List[TimelineEvent])
 async def get_risk_timeline(
-    tenant_id: uuid.UUID = Query(uuid.UUID('00000000-0000-0000-0000-000000000000')),
-    db: AsyncSession = Depends(get_db)
+    tenant_id: uuid.UUID = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
+    if tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Not authorized for this tenant")
     return [
         TimelineEvent(
             id=uuid.uuid4(),
@@ -66,9 +74,12 @@ async def get_risk_timeline(
 
 @router.get("/bottlenecks", response_model=List[BottleneckItem])
 async def get_risk_bottlenecks(
-    tenant_id: uuid.UUID = Query(uuid.UUID('00000000-0000-0000-0000-000000000000')),
-    db: AsyncSession = Depends(get_db)
+    tenant_id: uuid.UUID = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
+    if tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Not authorized for this tenant")
     return [
         BottleneckItem(
             entity_type="WorkOrder",

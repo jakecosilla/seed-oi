@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 from asgi_correlation_id import CorrelationIdMiddleware
 
-from api.routers import health, system, ingestion, sources, events, settings as settings_router, overview, risks, scenarios, chat
+from api.routers import health, system, ingestion, sources, events, settings as settings_router, overview, risks, scenarios, chat, auth
 from infrastructure.config import get_settings
 from infrastructure.logging import setup_logging, get_logger
 
@@ -44,6 +44,7 @@ def create_app() -> FastAPI:
     app.include_router(ingestion.router)
     app.include_router(sources.router)
     app.include_router(events.router)
+    app.include_router(auth.router)
     app.include_router(settings_router.router)
     app.include_router(overview.router)
     app.include_router(risks.router)
