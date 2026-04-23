@@ -1,0 +1,10 @@
+[project]
+name = "seed-oi-db"
+version = "0.1.0"
+description = "Seed OI Database Baseline"
+requires-python = ">=3.9"
+dependencies = [
+    "alembic>=1.13.1",
+    "psycopg2-binary>=2.9.9",
+    "sqlalchemy>=2.0.29",
+]

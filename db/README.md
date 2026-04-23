@@ -20,9 +20,9 @@ This directory contains the database schema definitions and Alembic migrations f
 4. Create a virtual environment and install dependencies:
    ```bash
    cd db
-   python -m venv .venv
+   uv venv
    source .venv/bin/activate
-   pip install -r requirements.txt
+   uv sync
    ```
 5. Run the initial migration to build the schema:
    ```bash
