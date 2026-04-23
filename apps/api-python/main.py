@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import uvicorn
 
-from api.routers import health, system, ingestion, sources, events
+from api.routers import health, system, ingestion, sources, events, settings
 from infrastructure.config import get_settings
 
 @asynccontextmanager
@@ -37,6 +37,7 @@ def create_app() -> FastAPI:
     app.include_router(ingestion.router)
     app.include_router(sources.router)
     app.include_router(events.router)
+    app.include_router(settings.router)
 
     return app
 
