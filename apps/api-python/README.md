@@ -14,13 +14,13 @@ The project follows a clean architecture approach:
 
 1. Setup a Python virtual environment:
    ```bash
-   python -m venv .venv
+   uv venv
    source .venv/bin/activate
    ```
 
 2. Install dependencies:
    ```bash
-   pip install -r requirements.txt
+   uv sync
    ```
 
 3. Run the application:
