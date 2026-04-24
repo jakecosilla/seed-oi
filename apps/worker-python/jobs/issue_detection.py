@@ -122,11 +122,22 @@ async def run_issue_detection(db: AsyncSession, tenant_id: UUID):
     try:
         rules = await get_active_risk_rules(db, tenant_id)
         
+        # We need to track issues to publish events.
+        # For simplicity, we just publish a generic "issues_detected" or we can fetch new ones.
+        # Let's just publish an event for cache invalidation.
         await detect_shortages(db, tenant_id, rules)
         await detect_delays(db, tenant_id, rules)
         await detect_stale_sources(db, tenant_id, rules)
         
         await db.commit()
+        
+        # Publish events for any created issues
+        from application.services.event_publisher import publisher
+        await publisher.publish(
+            "issue_created", 
+            {"tenant_id": str(tenant_id), "source": "analytical_engine"}
+        )
+            
         logger.info(f"Successfully completed issue detection for tenant {tenant_id}")
     except Exception as e:
         await db.rollback()

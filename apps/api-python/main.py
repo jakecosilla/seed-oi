@@ -12,11 +12,24 @@ from infrastructure.logging import setup_logging, get_logger
 setup_logging()
 logger = get_logger(__name__)
 
+from application.services import event_publisher
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    settings_conf = get_settings()
     logger.info("service_starting", version="0.1.0")
+    
+    # Initialize scalable event publisher
+    event_publisher.publisher = event_publisher.get_event_broker(
+        environment=settings_conf.environment,
+        database_url=settings_conf.database_url
+    )
+    
     yield
+    
     logger.info("service_shutting_down")
+    # If using Postgres pool, we might want to close it, but asyncpg pool management 
+    # within the class handles its own lifecycles or we rely on process exit.
 
 def create_app() -> FastAPI:
     settings_conf = get_settings()
