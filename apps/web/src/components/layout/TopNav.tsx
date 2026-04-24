@@ -2,12 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Activity, AlertTriangle, GitBranch, Database, Settings, Bell, Search, Hexagon, LogOut, User as UserIcon } from 'lucide-react';
+import { Activity, AlertTriangle, GitBranch, Database, Settings, Bell, Search, Hexagon, LogOut, User as UserIcon, Wifi, WifiOff } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
+import { useRealtime } from '@/providers/RealtimeProvider';
 
 export function TopNav() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const { isConnected, lastEventAt } = useRealtime();
 
   if (pathname === '/login') return null;
 
@@ -48,6 +50,16 @@ export function TopNav() {
         </nav>
 
         <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 mr-2 px-2.5 py-1.5 bg-slate-50 rounded-full border border-slate-100" title={isConnected ? `Connected. Last event: ${lastEventAt?.toLocaleTimeString() || 'None yet'}` : 'Disconnected'}>
+            {isConnected ? (
+              <Wifi size={14} className="text-emerald-500" />
+            ) : (
+              <WifiOff size={14} className="text-slate-400" />
+            )}
+            <span className={`text-[10px] font-bold uppercase leading-none ${isConnected ? 'text-emerald-700' : 'text-slate-500'}`}>
+              {isConnected ? 'Live' : 'Offline'}
+            </span>
+          </div>
           <div className="flex items-center gap-2 mr-2 px-3 py-1.5 bg-slate-50 rounded-full border border-slate-100">
              <div className="text-[10px] uppercase font-bold text-slate-400 leading-none">Role</div>
              <div className="text-xs font-bold text-slate-700 leading-none">{user?.role || 'Guest'}</div>

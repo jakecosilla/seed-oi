@@ -18,7 +18,14 @@ async def main():
         from jobs.issue_detection import run_issue_detection
         from jobs.impact_analysis import run_impact_analysis_cycle
         from jobs.recommendation_engine import run_recommendation_cycle
+        from application.services import event_publisher
         import uuid
+        
+        # Initialize scalable event publisher
+        event_publisher.publisher = event_publisher.get_event_broker(
+            environment=settings.environment,
+            database_url=settings.database_url
+        )
         
         # Keep the worker running
         while True:

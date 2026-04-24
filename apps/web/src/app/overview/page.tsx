@@ -66,7 +66,7 @@ export default function OverviewPage() {
       headers: { 'Authorization': `Bearer ${accessToken}` }
     }),
     enabled: !!user && !!accessToken,
-    refetchInterval: 10000,
+    refetchInterval: 60000, // Fallback polling (primary updates via SSE)
   });
 
   const { data: issues = [] } = useQuery({
@@ -75,7 +75,7 @@ export default function OverviewPage() {
       headers: { 'Authorization': `Bearer ${accessToken}` }
     }),
     enabled: !!user && !!accessToken,
-    refetchInterval: 10000,
+    refetchInterval: 60000, // Fallback polling (primary updates via SSE)
   });
 
   const selectedIssue = issues.find((i: Issue) => i.id === selectedIssueId);

@@ -60,7 +60,7 @@ export default function ScenariosPage() {
       headers: { 'Authorization': `Bearer ${accessToken}` }
     }),
     enabled: !!user && !!accessToken,
-    refetchInterval: 15000,
+    refetchInterval: 60000, // Fallback polling (primary updates via SSE)
   });
 
   const { data: comparison, isFetching: isComparisonFetching } = useQuery({
@@ -69,7 +69,7 @@ export default function ScenariosPage() {
       headers: { 'Authorization': `Bearer ${accessToken}` }
     }),
     enabled: !!selectedIssueId && !!user && !!accessToken,
-    refetchInterval: 15000, // Near-real-time refresh
+    refetchInterval: 60000, // Fallback polling (primary updates via SSE)
   });
 
   const formatCurrency = (val: number) => 

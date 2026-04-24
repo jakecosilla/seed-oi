@@ -43,7 +43,7 @@ export default function RisksPage() {
       headers: { 'Authorization': `Bearer ${accessToken}` }
     }),
     enabled: !!user && !!accessToken,
-    refetchInterval: 10000,
+    refetchInterval: 60000, // Fallback polling (primary updates via SSE)
   });
 
   const { data: timeline = [] } = useQuery({
@@ -52,7 +52,7 @@ export default function RisksPage() {
       headers: { 'Authorization': `Bearer ${accessToken}` }
     }),
     enabled: !!user && !!accessToken,
-    refetchInterval: 10000,
+    refetchInterval: 60000, // Fallback polling (primary updates via SSE)
   });
 
   const { data: bottlenecks = [] } = useQuery({
@@ -61,7 +61,7 @@ export default function RisksPage() {
       headers: { 'Authorization': `Bearer ${accessToken}` }
     }),
     enabled: !!user && !!accessToken,
-    refetchInterval: 10000,
+    refetchInterval: 60000, // Fallback polling (primary updates via SSE)
   });
 
   const formatCurrency = (val: number) => 
