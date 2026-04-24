@@ -1,12 +1,12 @@
 import uuid
 import datetime
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict, Any, Annotated
 
 from infrastructure.database import get_db
-from infrastructure.security import get_current_user
+from api.dependencies.security import get_current_user
 from domain.models import User
 
 from application.services.observability import ObservabilityService
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 class ChatRequest(BaseModel):
     message: str
-    context: Optional[dict] = None
+    context: Optional[Dict[str, Any]] = None
 
 class ChatResponse(BaseModel):
     response: str
@@ -28,7 +28,7 @@ class ChatResponse(BaseModel):
 
 @router.post("/query", response_model=ChatResponse)
 async def chat_query(
-    request: ChatRequest,
+    chat_data: Annotated[ChatRequest, Body()],
     tenant_id: uuid.UUID = Query(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -38,19 +38,19 @@ async def chat_query(
         raise HTTPException(status_code=403, detail="Not authorized for this tenant")
     
     # Plant-level restriction check (if plant_id provided in context)
-    if request.context and "plant_id" in request.context:
+    if chat_data.context and "plant_id" in chat_data.context:
         from infrastructure.security import get_user_plant_ids
         allowed_plants = await get_user_plant_ids(current_user, db)
-        req_plant = uuid.UUID(request.context["plant_id"])
+        req_plant = uuid.UUID(chat_data.context["plant_id"])
         if req_plant not in allowed_plants:
              raise HTTPException(status_code=403, detail="Not authorized for this plant")
 
     obs = ObservabilityService(db)
     await obs.emit_system_event(
         event_type="assistant_request",
-        message=f"Chat query: {request.message[:50]}...",
+        message=f"Chat query: {chat_data.message[:50]}...",
         severity="info",
-        metadata={"query": request.message, "context": request.context}
+        metadata={"query": chat_data.message, "context": chat_data.context}
     )
     now = datetime.datetime.now().strftime("%H:%M:%S")
     
@@ -62,7 +62,7 @@ async def chat_query(
     chat_model = get_chat_model()
     agent = SeedOIAgent(db, chat_model, orchestrator)
     
-    result = await agent.run(request.message, request.context, tenant_id)
+    result = await agent.run(chat_data.message, chat_data.context, tenant_id)
 
     return ChatResponse(
         response=result.get("response", "I could not process your request."),
