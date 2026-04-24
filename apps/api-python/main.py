@@ -1,8 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
 import uvicorn
-from asgi_correlation_id import CorrelationIdMiddleware
 
 from api.routers import health, system, ingestion, sources, events, settings as settings_router, overview, risks, scenarios, chat, auth
 from infrastructure.config import get_settings
@@ -12,40 +10,16 @@ from infrastructure.logging import setup_logging, get_logger
 setup_logging()
 logger = get_logger(__name__)
 
-from application.services import event_publisher
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    settings_conf = get_settings()
-    logger.info("service_starting", version="0.1.0")
-    
-    # Initialize scalable event publisher
-    event_publisher.publisher = event_publisher.get_event_broker(
-        environment=settings_conf.environment,
-        database_url=settings_conf.database_url
-    )
-    
-    yield
-    
-    logger.info("service_shutting_down")
-    # If using Postgres pool, we might want to close it, but asyncpg pool management 
-    # within the class handles its own lifecycles or we rely on process exit.
-
 def create_app() -> FastAPI:
     settings_conf = get_settings()
     
     app = FastAPI(
         title=settings_conf.app_name,
         version=settings_conf.app_version,
-        lifespan=lifespan,
         docs_url="/docs" if settings_conf.debug else None,
         redoc_url="/redoc" if settings_conf.debug else None,
     )
 
-    # IMPORTANT: In Starlette, middleware is processed in REVERSE order of addition.
-    # CORSMiddleware must be added LAST so it is the OUTERMOST wrapper,
-    # ensuring CORS headers are always present on every response.
-    app.add_middleware(CorrelationIdMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings_conf.cors_origins,

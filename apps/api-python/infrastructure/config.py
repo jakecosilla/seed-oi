@@ -24,7 +24,7 @@ class Settings(BaseSettings):
 
     # CORS Settings
     # Supports comma-separated list in .env (e.g., CORS_ORIGINS="http://localhost:3000,https://app.seed-oi.com")
-    cors_origins: List[str] = ["http://localhost:3000"]
+    cors_origins: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
     
     @validator("cors_origins", "platform_admins", pre=True)
     def assemble_list(cls, v: Union[str, List[str]]) -> Union[List[str], str]:
@@ -37,7 +37,18 @@ class Settings(BaseSettings):
     # Database Settings
     database_url: str = "postgresql://postgres:postgres@localhost:5432/seed_oi"
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False)
+    # LLM & AI Settings
+    llm_provider: str = "mock"
+    ollama_model: str = "llama3"
+    ollama_base_url: str = "http://localhost:11434"
+    openai_model: str = "gpt-4o"
+
+    model_config = SettingsConfigDict(
+        env_file=".env", 
+        env_file_encoding="utf-8", 
+        case_sensitive=False,
+        extra="ignore"
+    )
 
 def get_settings() -> Settings:
     return Settings()
