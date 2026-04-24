@@ -79,6 +79,7 @@ class SettingHistory(Base):
     setting_id = Column(UUID(as_uuid=True), nullable=False)
     payload = Column(JSON, nullable=False)
     changed_by_user_id = Column(UUID(as_uuid=True), nullable=True)
+
 class TraceableMixin:
     tenant_id = Column(UUID(as_uuid=True), nullable=False)
     plant_id = Column(UUID(as_uuid=True), nullable=True)
@@ -87,6 +88,75 @@ class TraceableMixin:
     last_synced_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+class Material(Base, TraceableMixin):
+    __tablename__ = 'materials'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    code = Column(String, nullable=False)
+    name = Column(String, nullable=False)
+    lead_time_days = Column(Integer, nullable=True)
+
+class Product(Base, TraceableMixin):
+    __tablename__ = 'products'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    sku = Column(String, nullable=False)
+    name = Column(String, nullable=False)
+
+class BillOfMaterials(Base):
+    __tablename__ = 'bill_of_materials'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    product_id = Column(UUID(as_uuid=True), ForeignKey('products.id'), nullable=False)
+    material_id = Column(UUID(as_uuid=True), ForeignKey('materials.id'), nullable=False)
+    quantity_required = Column(Numeric, nullable=False)
+    tenant_id = Column(UUID(as_uuid=True), nullable=False)
+
+class InventoryBalance(Base, TraceableMixin):
+    __tablename__ = 'inventory_balances'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    material_id = Column(UUID(as_uuid=True), ForeignKey('materials.id'), nullable=True)
+    product_id = Column(UUID(as_uuid=True), ForeignKey('products.id'), nullable=True)
+    quantity_on_hand = Column(Numeric, nullable=False, default=0)
+    quantity_allocated = Column(Numeric, nullable=False, default=0)
+    quantity_on_order = Column(Numeric, nullable=False, default=0)
+
+class PurchaseOrder(Base, TraceableMixin):
+    __tablename__ = 'purchase_orders'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    order_number = Column(String, nullable=False)
+    status = Column(String, nullable=False)
+    expected_delivery_date = Column(DateTime(timezone=True), nullable=True)
+
+class WorkOrder(Base, TraceableMixin):
+    __tablename__ = 'work_orders'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    product_id = Column(UUID(as_uuid=True), ForeignKey('products.id'), nullable=False)
+    order_number = Column(String, nullable=False)
+    status = Column(String, nullable=False)
+    planned_end_date = Column(DateTime(timezone=True), nullable=True)
+    target_quantity = Column(Numeric, nullable=False)
+
+class SalesOrder(Base, TraceableMixin):
+    __tablename__ = 'sales_orders'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    order_number = Column(String, nullable=False)
+    status = Column(String, nullable=False)
+    requested_delivery_date = Column(DateTime(timezone=True), nullable=True)
+
+class SalesOrderItem(Base):
+    __tablename__ = 'sales_order_items'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    sales_order_id = Column(UUID(as_uuid=True), ForeignKey('sales_orders.id'), nullable=False)
+    product_id = Column(UUID(as_uuid=True), ForeignKey('products.id'), nullable=False)
+    quantity = Column(Numeric, nullable=False)
+    unit_price = Column(Numeric, nullable=True)
+    tenant_id = Column(UUID(as_uuid=True), nullable=False)
+
+class Shipment(Base, TraceableMixin):
+    __tablename__ = 'shipments'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    sales_order_id = Column(UUID(as_uuid=True), ForeignKey('sales_orders.id'), nullable=True)
+    status = Column(String, nullable=False)
+    estimated_arrival_date = Column(DateTime(timezone=True), nullable=True)
 
 class Issue(Base, TraceableMixin):
     __tablename__ = 'issues'

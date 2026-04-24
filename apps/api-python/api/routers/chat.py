@@ -52,32 +52,21 @@ async def chat_query(
         severity="info",
         metadata={"query": request.message, "context": request.context}
     )
-    msg = request.message.lower()
     now = datetime.datetime.now().strftime("%H:%M:%S")
     
-    # Simple rule-based "AI" for the demo
-    if "revenue" in msg or "risk" in msg:
-        total_rev = 2450000 # Mocked
-        response = f"Current operational analysis shows a total revenue exposure of ${total_rev:,.0f} across all active issues. The highest risk is currently linked to Material shortages in the Northern site."
-        suggested = ["Show high-risk issues", "View impact map"]
-        sources = ["Finance Ledger", "Salesforce Pipeline"]
-    elif "delay" in msg:
-        total_delay = 45 # Mocked
-        response = f"There are approximately {total_delay} cumulative days of delay across your pending orders. I recommend reviewing the 'Expedite' scenarios to recover time."
-        suggested = ["Open Scenarios", "View Timeline"]
-        sources = ["Shipping Manifests", "Carrier APIs"]
-    elif "scenario" in msg or "alternative" in msg:
-        response = "I'm currently evaluating 3 alternative shipping routes to bypass the port congestion. Would you like to see the cost-benefit analysis for each?"
-        suggested = ["Compare shipping routes", "See cost impact"]
-        sources = ["Global Transit Map", "Pricing Engine"]
-    else:
-        response = "I'm monitoring your supply chain in real-time. You can ask about revenue exposure, pending delays, or bottleneck locations."
-        suggested = ["What is the revenue at risk?", "Where are the bottlenecks?"]
-        sources = ["ERP Systems", "IoT Sensor Data"]
+    from application.services.chat_orchestrator import ChatOrchestrator
+    from application.services.agent import SeedOIAgent
+    from application.services.llm import get_chat_model
+    
+    orchestrator = ChatOrchestrator(db, tenant_id)
+    chat_model = get_chat_model()
+    agent = SeedOIAgent(db, chat_model, orchestrator)
+    
+    result = await agent.run(request.message, request.context, tenant_id)
 
     return ChatResponse(
-        response=response,
-        suggested_actions=suggested,
-        sources=sources,
+        response=result.get("response", "I could not process your request."),
+        suggested_actions=result.get("suggested_actions", []),
+        sources=result.get("sources", []),
         last_updated=now
     )
