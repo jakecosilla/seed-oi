@@ -14,11 +14,21 @@ class DummyChatModel:
             intent = "po_delay"
         elif "scenario" in last_msg:
             intent = "scenario_compare"
+        elif "performance" in last_msg or "slow" in last_msg:
+            intent = "performance"
+        elif "available" in last_msg or "how many" in last_msg:
+            intent = "inventory_status"
+        elif "ambiguous" in last_msg:
+             return AIMessage(content='```json\n{"normalized_query": "ambiguous", "primary_intent": "general_chat", "entities": [], "confidence": 0.5, "requires_clarification": true, "clarification_question": "Do you mean A or B?"}\n```')
         else:
             intent = "inventory_risk"
             
-        mock_json = f'{{"normalized_query": "{last_msg}", "intent": "{intent}", "entities": {{}}}}'
+        mock_json = f'{{"normalized_query": "{last_msg}", "primary_intent": "{intent}", "entities": [], "confidence": 0.9, "requires_clarification": false}}'
         return AIMessage(content=f"```json\n{mock_json}\n```")
+
+    async def _agenerate(self, messages, stop=None, **kwargs):
+        # Compatibility with different LangChain versions if needed
+        return None
 
 @pytest.fixture
 def mock_orchestrator():
@@ -32,6 +42,11 @@ def mock_orchestrator():
         "response": "PO-123 is delayed.",
         "suggested_actions": ["Expedite"],
         "sources": ["PO DB"]
+    }
+    orchestrator._handle_performance_query.return_value = {
+        "response": "Warehouse B is slow.",
+        "suggested_actions": ["View line logs"],
+        "sources": ["Perf DB"]
     }
     return orchestrator
 
@@ -51,9 +66,12 @@ async def test_understand_node(agent):
         selected_tool=None,
         structured_data=None,
         rag_context=None,
+        intent_data=None,
         response=None,
         suggested_actions=[],
-        sources=[]
+        sources=[],
+        clarification_needed=False,
+        clarification_message=None
     )
     new_state = await agent.understand_node(state)
     assert new_state["intent"] == "inventory_risk"
@@ -71,9 +89,12 @@ async def test_route_and_execute_structured(agent, mock_orchestrator):
         selected_tool=None,
         structured_data=None,
         rag_context=None,
+        intent_data=None,
         response=None,
         suggested_actions=[],
-        sources=[]
+        sources=[],
+        clarification_needed=False,
+        clarification_message=None
     )
     
     # Route node
@@ -102,6 +123,7 @@ async def test_rag_routing(agent):
         selected_tool=None,
         structured_data=None,
         rag_context=None,
+        intent_data=None,
         response=None,
         suggested_actions=[],
         sources=[]
@@ -124,3 +146,41 @@ async def test_full_graph_invocation(agent):
     result = await agent.run("what inventory is short?", {}, tenant_id)
     assert "Inventory is at risk" in result["response"]
     assert "Reallocate" in result["suggested_actions"]
+
+@pytest.mark.asyncio
+async def test_clarification_node(agent):
+    tenant_id = uuid.uuid4()
+    result = await agent.run("something ambiguous", {}, tenant_id)
+    assert "Do you mean A or B?" in result["response"]
+    assert result["suggested_actions"] == []
+
+@pytest.mark.asyncio
+async def test_performance_intent(agent):
+    tenant_id = uuid.uuid4()
+    result = await agent.run("which plant is slow?", {}, tenant_id)
+    assert "Warehouse B is slow." in result["response"]
+    assert "View line logs" in result["suggested_actions"]
+
+@pytest.mark.asyncio
+async def test_inventory_status_intent(agent):
+    tenant_id = uuid.uuid4()
+    # Mocking orchestrator for status
+    agent.orchestrator._handle_inventory_query.return_value = {
+        "response": "You have 500 units available.",
+        "suggested_actions": ["View detail"],
+        "sources": ["Inv DB"]
+    }
+    result = await agent.run("how many materials available?", {}, tenant_id)
+    assert "500 units available" in result["response"]
+    assert "View detail" in result["suggested_actions"]
+
+@pytest.mark.asyncio
+async def test_warehouse_material_intent(agent):
+    tenant_id = uuid.uuid4()
+    agent.orchestrator._handle_inventory_query.return_value = {
+        "response": "Warehouse B has 42 materials.",
+        "suggested_actions": ["View Warehouse B"],
+        "sources": ["Inv DB"]
+    }
+    result = await agent.run("can you list each materials per warehouse?", {}, tenant_id)
+    assert "Warehouse B has 42 materials" in result["response"]

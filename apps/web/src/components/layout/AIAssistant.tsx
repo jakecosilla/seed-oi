@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { Sparkles, Send, ArrowRight, Brain, Clock } from 'lucide-react';
 import { fetchApi } from '@/lib/api-client';
 import { useAuth } from '@/providers/AuthProvider';
@@ -112,7 +113,9 @@ export function AIAssistant({ title = "Ask Operations", context, initialMessage 
                    <span className="text-[10px] font-bold uppercase tracking-widest">Intelligence</span>
                 </div>
               )}
-              <p className="leading-relaxed">{msg.text}</p>
+              <div className="prose prose-sm prose-slate max-w-none prose-p:leading-relaxed prose-p:my-0 prose-headings:my-2 prose-li:my-0.5">
+                <ReactMarkdown>{msg.text}</ReactMarkdown>
+              </div>
               
               {msg.sources && msg.sources.length > 0 && (
                 <div className="mt-3 pt-2 border-t border-slate-200/50 flex flex-wrap gap-2">
