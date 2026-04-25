@@ -38,6 +38,10 @@ class ChatOrchestrator:
         if "purchase order" in query_lower or "po" in query_lower or "delay" in query_lower or "late" in query_lower:
             return await self._handle_po_delay_query(query_lower, context)
             
+        # 5.5 Shipments
+        if "shipment" in query_lower or "shipped" in query_lower or "track" in query_lower:
+            return await self._handle_shipment_query(query_lower, context)
+            
         # 6. Orders protected by inventory
         if "protected" in query_lower or "healthy" in query_lower:
             return await self._handle_health_query(query_lower, context)
@@ -49,8 +53,12 @@ class ChatOrchestrator:
         # 8. Refresh / Changes
         if "changed" in query_lower or "refresh" in query_lower:
             return await self._handle_refresh_query(query_lower, context)
+            
+        # 9. Performance (Slow/Fast)
+        if "slow" in query_lower or "fast" in query_lower or "production" in query_lower or "performance" in query_lower:
+            return await self._handle_performance_query(query_lower, context)
 
-        # 9. Default / Operational Data Fallback
+        # 10. Default / Operational Data Fallback
         return await self._handle_default_summary(query_lower, context)
 
     async def _handle_source_query(self, query: str, context: dict) -> dict:
@@ -206,18 +214,42 @@ class ChatOrchestrator:
             }
         
         # General inventory status or allocations
+        plant_id = context.get("plant_id")
+        
         stmt = select(func.sum(InventoryBalance.quantity_on_hand), func.sum(InventoryBalance.quantity_allocated)).where(
             InventoryBalance.tenant_id == self.tenant_id
         )
+        
+        if plant_id:
+             try:
+                 p_uuid = uuid.UUID(plant_id) if isinstance(plant_id, str) else plant_id
+                 stmt = stmt.where(InventoryBalance.plant_id == p_uuid)
+             except: pass
+
         result = await self.db.execute(stmt)
         row = result.first()
         total_on_hand = row[0] or 0
         total_allocated = row[1] or 0
         
+        # Count SKUs
+        sku_stmt = select(func.count(func.distinct(InventoryBalance.material_id))).where(
+            InventoryBalance.tenant_id == self.tenant_id
+        )
+        if plant_id:
+             try:
+                 p_uuid = uuid.UUID(plant_id) if isinstance(plant_id, str) else plant_id
+                 sku_stmt = sku_stmt.where(InventoryBalance.plant_id == p_uuid)
+             except: pass
+             
+        sku_result = await self.db.execute(sku_stmt)
+        sku_count = sku_result.scalar() or 0
+        
+        scope = f"for the selected site" if plant_id else "across all sites"
+        
         return {
-            "response": f"Across all tracked materials, you have {total_on_hand:,.0f} units on hand and {total_allocated:,.0f} units currently allocated. Would you like to review specific materials?",
-            "suggested_actions": ["Which materials will run out first?", "What can be reallocated?"],
-            "sources": ["Inventory Aggregations"]
+            "response": f"Currently, {scope}, there are {sku_count} material SKUs with a total of {total_on_hand:,.0f} units on hand. Of these, {total_allocated:,.0f} units are already allocated to work orders.",
+            "suggested_actions": ["Which materials will run out first?", "Show low stock materials"],
+            "sources": ["Inventory Aggregations", "Material Master"]
         }
 
     async def _handle_po_delay_query(self, query: str, context: dict) -> dict:
@@ -251,6 +283,34 @@ class ChatOrchestrator:
             "response": response,
             "suggested_actions": ["Show revenue exposure", "Compare alternative suppliers"],
             "sources": ["Purchase Orders Table", "Carrier Telemetry"]
+        }
+
+    async def _handle_shipment_query(self, query: str, context: dict) -> dict:
+        # Check for in-transit shipments
+        stmt = select(Shipment).where(
+            Shipment.tenant_id == self.tenant_id,
+            Shipment.status == 'In Transit'
+        ).limit(5)
+        
+        result = await self.db.execute(stmt)
+        shipments = result.scalars().all()
+        
+        if not shipments:
+            return {
+                "response": "I couldn't find any active 'In Transit' shipments for your account. All recent shipments have either been delivered or are still in the 'Pending' state.",
+                "suggested_actions": ["Show pending shipments", "Check PO status"],
+                "sources": ["Shipment Tracking Table"]
+            }
+            
+        response = f"I found {len(shipments)} shipments currently in transit:\n"
+        for s in shipments:
+            ref = s.source_record_id or str(s.id)[:8]
+            response += f"- **Shipment {ref}**: {s.status} (Estimated arrival: {s.estimated_arrival_date.strftime('%Y-%m-%d') if s.estimated_arrival_date else 'TBD'})\n"
+            
+        return {
+            "response": response,
+            "suggested_actions": ["View map", "Notify warehouse"],
+            "sources": ["Carrier Telemetry", "Logistics DB"]
         }
 
     async def _handle_health_query(self, query: str, context: dict) -> dict:
@@ -291,3 +351,34 @@ class ChatOrchestrator:
                 "suggested_actions": ["Trigger Re-Sync", "View Source Connections"],
                 "sources": ["System Event Logs"]
             }
+    async def _handle_performance_query(self, query: str, context: dict) -> dict:
+        # This is a mock implementation of performance/speed analysis
+        # In a real system, we'd query historical work order completion rates or throughput logs
+        plant_id = context.get("plant_id")
+        
+        if "warehouse" in query or "plant" in query or "site" in query:
+            if plant_id:
+                return {
+                    "response": f"Production at the selected site is currently operating at 94% efficiency. Packaging line 2 is the primary bottleneck today, causing a 5% slowdown compared to last week's baseline.",
+                    "suggested_actions": ["View line-level details", "Compare with Southern Site"],
+                    "sources": ["Plant Throughput Logs", "Work Order History"]
+                }
+            else:
+                return {
+                    "response": f"Across all facilities, Warehouse B (Northern) is currently showing the lowest production velocity, tracking 14% below plan this shift. The Southern Site is our top performer at 102% of plan.",
+                    "suggested_actions": ["Drill down into Warehouse B", "Show top performers"],
+                    "sources": ["Multi-site Performance Dashboard"]
+                }
+        
+        if "sales" in query or "selling" in query or "velocity" in query:
+             return {
+                "response": "Sales velocity for core products is up 12% this month. 'Meat Category A' is currently our fastest-moving SKU, which may lead to inventory pressure next week if current replenishment rates aren't adjusted.",
+                "suggested_actions": ["View sales forecast", "Adjust safety stock"],
+                "sources": ["Sales Order Telemetry", "Demand Forecast Engine"]
+            }
+
+        return {
+            "response": "General production velocity is stable. Are you asking about a specific site, warehouse, or product category's performance?",
+            "suggested_actions": ["Plant performance", "Product sales velocity"],
+            "sources": ["Operational Intelligence"]
+        }
