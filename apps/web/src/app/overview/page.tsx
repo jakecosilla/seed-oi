@@ -5,16 +5,31 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { SidePanel } from '@/components/ui/SidePanel';
 import { fetchApi } from '@/lib/api-client';
-import { AlertCircle, Clock, DollarSign, Activity, ChevronRight, ShieldAlert, CheckCircle2, ArrowRight } from 'lucide-react';
+import { AlertCircle, Clock, DollarSign, Activity, ChevronRight, ShieldAlert, CheckCircle2, ArrowRight, TrendingUp, Zap, Lightbulb, Sparkles, Heart } from 'lucide-react';
 import { AIAssistant } from '@/components/layout/AIAssistant';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/providers/AuthProvider';
+import { HealthSignalItem } from '@/components/ui/HealthSignalItem';
 
 export interface SummaryData {
   total_open_issues: number;
   critical_issues: number;
   total_revenue_at_risk: number;
   total_delay_days: number;
+  on_track_percentage: number;
+  improved_count: number;
+  available_capacity_pct: number;
+  active_opportunities: number;
+}
+
+export interface HealthSignal {
+  id: string;
+  category: 'Healthy' | 'Improved' | 'Capacity' | 'Opportunity';
+  title: string;
+  description: string;
+  metric_value?: string;
+  metric_trend?: 'up' | 'down' | 'stable';
+  impact_area: string;
 }
 
 export interface Recommendation {
@@ -75,7 +90,16 @@ export default function OverviewPage() {
       headers: { 'Authorization': `Bearer ${accessToken}` }
     }),
     enabled: !!user && !!accessToken,
-    refetchInterval: 60000, // Fallback polling (primary updates via SSE)
+    refetchInterval: 60000,
+  });
+
+  const { data: healthSignals = [] } = useQuery({
+    queryKey: ['overview-health', user?.tenant_id],
+    queryFn: () => fetchApi<HealthSignal[]>(`/overview/health?tenant_id=${user?.tenant_id}`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    }),
+    enabled: !!user && !!accessToken,
+    refetchInterval: 60000,
   });
 
   const selectedIssue = issues.find((i: Issue) => i.id === selectedIssueId);
@@ -105,64 +129,85 @@ export default function OverviewPage() {
           </div>
 
           {/* Top Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Risk Metrics */}
+            <Card className="border-l-4 border-l-rose-500">
               <CardContent className="pt-6 flex flex-col gap-1">
-                <div className="flex justify-between items-start">
-                  <span className="text-sm font-medium text-slate-500">Revenue at Risk</span>
-                  <DollarSign size={16} className="text-rose-500" />
+                <div className="flex justify-between items-start text-slate-500">
+                  <span className="text-xs font-bold uppercase tracking-wider">Revenue at Risk</span>
+                  <DollarSign size={16} />
                 </div>
                 <span className="text-3xl font-bold text-slate-900 tracking-tight">
                   {summary ? formatCurrency(summary.total_revenue_at_risk) : '...'}
                 </span>
+                <div className="text-xs text-rose-600 font-medium flex items-center gap-1 mt-1">
+                  <AlertCircle size={12} /> {summary?.critical_issues} critical issues
+                </div>
               </CardContent>
             </Card>
             
-            <Card>
+            <Card className="border-l-4 border-l-amber-500">
               <CardContent className="pt-6 flex flex-col gap-1">
-                <div className="flex justify-between items-start">
-                  <span className="text-sm font-medium text-slate-500">Total Delay Days</span>
-                  <Clock size={16} className="text-amber-500" />
+                <div className="flex justify-between items-start text-slate-500">
+                  <span className="text-xs font-bold uppercase tracking-wider">On-Track Orders</span>
+                  <CheckCircle2 size={16} />
                 </div>
                 <span className="text-3xl font-bold text-slate-900 tracking-tight">
-                  {summary ? summary.total_delay_days : '...'}
+                  {summary ? `${summary.on_track_percentage}%` : '...'}
                 </span>
+                <div className="text-xs text-emerald-600 font-medium flex items-center gap-1 mt-1">
+                  <TrendingUp size={12} /> +1.2% from last week
+                </div>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-l-4 border-l-indigo-500">
               <CardContent className="pt-6 flex flex-col gap-1">
-                <div className="flex justify-between items-start">
-                  <span className="text-sm font-medium text-slate-500">Critical Issues</span>
-                  <ShieldAlert size={16} className="text-rose-600" />
+                <div className="flex justify-between items-start text-slate-500">
+                  <span className="text-xs font-bold uppercase tracking-wider">Avail. Capacity</span>
+                  <Zap size={16} />
                 </div>
                 <span className="text-3xl font-bold text-slate-900 tracking-tight">
-                  {summary ? summary.critical_issues : '...'}
+                  {summary ? `${summary.available_capacity_pct}%` : '...'}
                 </span>
+                <div className="text-xs text-indigo-600 font-medium flex items-center gap-1 mt-1">
+                  <Activity size={12} /> Optimized for demand
+                </div>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-l-4 border-l-emerald-500">
               <CardContent className="pt-6 flex flex-col gap-1">
-                <div className="flex justify-between items-start">
-                  <span className="text-sm font-medium text-slate-500">Total Open Issues</span>
-                  <Activity size={16} className="text-indigo-500" />
+                <div className="flex justify-between items-start text-slate-500">
+                  <span className="text-xs font-bold uppercase tracking-wider">Opportunities</span>
+                  <Lightbulb size={16} />
                 </div>
                 <span className="text-3xl font-bold text-slate-900 tracking-tight">
-                  {summary ? summary.total_open_issues : '...'}
+                  {summary ? summary.active_opportunities : '...'}
                 </span>
+                <div className="text-xs text-emerald-600 font-medium flex items-center gap-1 mt-1">
+                  <Sparkles size={12} /> {summary?.improved_count} improvements detected
+                </div>
               </CardContent>
             </Card>
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 flex-1">
-            {/* What Needs Attention Now */}
-            <Card className="flex flex-col h-[500px]">
-              <CardHeader className="bg-slate-50/50">What Needs Attention Now</CardHeader>
+            {/* What Needs Attention Now (Risks/Exceptions) */}
+            <Card className="flex flex-col h-[600px]">
+              <CardHeader className="bg-slate-50/50 flex flex-row items-center justify-between py-3">
+                <div className="flex items-center gap-2">
+                  <AlertCircle size={18} className="text-rose-500" />
+                  <span className="font-bold text-slate-800">What Needs Attention Now</span>
+                </div>
+                <span className="bg-rose-100 text-rose-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                  {issues.length} Risks Detected
+                </span>
+              </CardHeader>
               <CardContent className="flex-1 overflow-y-auto p-0">
                 {issues.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2">
-                    <CheckCircle2 size={32} />
+                    <CheckCircle2 size={32} className="text-emerald-500" />
                     <span>No active issues detected.</span>
                   </div>
                 ) : (
@@ -177,22 +222,22 @@ export default function OverviewPage() {
                           <div>
                             <div className="flex items-center gap-2 mb-1">
                               {issue.severity === 'Critical' ? (
-                                <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">
-                                  <AlertCircle size={12} /> Critical
+                                <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-rose-100 text-rose-700">
+                                  Critical
                                 </span>
                               ) : (
-                                <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                                  <AlertCircle size={12} /> Warning
+                                <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-100 text-amber-700">
+                                  Warning
                                 </span>
                               )}
-                              <span className="text-xs text-slate-400 font-mono">
+                              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                                 {issue.primary_entity_type || 'System'}
                               </span>
                             </div>
-                            <h4 className="font-semibold text-slate-900">{issue.title}</h4>
-                            <p className="text-sm text-slate-500 mt-1 line-clamp-1">{issue.description}</p>
+                            <h4 className="font-bold text-slate-900">{issue.title}</h4>
+                            <p className="text-xs text-slate-500 mt-1 line-clamp-2">{issue.description}</p>
                           </div>
-                          <ChevronRight className={`text-slate-300 ${selectedIssueId === issue.id ? 'text-indigo-500' : ''}`} size={20} />
+                          <ChevronRight className={`text-slate-300 mt-2 ${selectedIssueId === issue.id ? 'text-indigo-500' : ''}`} size={20} />
                         </div>
                       </li>
                     ))}
@@ -201,43 +246,38 @@ export default function OverviewPage() {
               </CardContent>
             </Card>
 
-            {/* Operational Impact Map (Simplified Visual) */}
-            <Card className="flex flex-col h-[500px]">
-              <CardHeader className="bg-slate-50/50">Operational Impact Map</CardHeader>
-              <CardContent className="flex-1 p-6 overflow-y-auto flex items-center justify-center">
-                 {selectedIssue && selectedIssue.risks && selectedIssue.risks.length > 0 ? (
-                   <div className="w-full flex flex-col gap-4">
-                      <div className="text-sm font-medium text-slate-500 mb-2">Impact Chain for: {selectedIssue.title}</div>
-                      
-                      {/* Source Node */}
-                      <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-800 text-sm font-medium self-start shadow-sm">
-                        [Source] {selectedIssue.primary_entity_type}: {selectedIssue.primary_entity_id?.substring(0,8)}
-                      </div>
-                      
-                      {/* Edges & Downstream Nodes */}
-                      <div className="pl-6 border-l-2 border-indigo-100 ml-4 space-y-4 py-2">
-                         {selectedIssue.risks.map((risk: Risk) => (
-                           <div key={risk.id} className="relative">
-                              <div className="absolute -left-6 top-1/2 w-6 border-t-2 border-indigo-100" />
-                              <div className="p-3 bg-white border border-slate-200 rounded-lg text-slate-700 text-sm shadow-sm flex items-center justify-between group hover:border-indigo-300 transition-colors">
-                                <div>
-                                  <span className="font-semibold text-indigo-700">{risk.affected_entity_type}</span>
-                                  <span className="text-slate-400 ml-2 font-mono text-xs">{risk.affected_entity_id.substring(0,8)}</span>
-                                </div>
-                                <div className="flex gap-3 text-xs font-medium">
-                                  {(risk.estimated_delay_days ?? 0) > 0 && <span className="text-amber-600 flex items-center gap-1"><Clock size={12}/> +{risk.estimated_delay_days}d</span>}
-                                  {(risk.revenue_exposure ?? 0) > 0 && <span className="text-rose-600 flex items-center gap-1"><DollarSign size={12}/> {formatCurrency(risk.revenue_exposure || 0)}</span>}
-                                </div>
-                              </div>
-                           </div>
-                         ))}
-                      </div>
-                   </div>
-                 ) : (
-                   <div className="text-center text-slate-400 italic text-sm max-w-xs">
-                      Select an issue from the list to visualize its downstream impact across the supply chain.
-                   </div>
-                 )}
+            {/* Business Health & Opportunities (Positive Signals) */}
+            <Card className="flex flex-col h-[600px]">
+              <CardHeader className="bg-slate-50/50 flex flex-row items-center justify-between py-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={18} className="text-emerald-500" />
+                  <span className="font-bold text-slate-800">Business Health & Opportunities</span>
+                </div>
+                <span className="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                  {healthSignals.length} Positive Signals
+                </span>
+              </CardHeader>
+              <CardContent className="flex-1 overflow-y-auto p-0">
+                {healthSignals.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2">
+                    <Activity size={32} />
+                    <span>Gathering health data...</span>
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-slate-100">
+                    {healthSignals.map((signal: HealthSignal) => (
+                      <HealthSignalItem
+                        key={signal.id}
+                        category={signal.category}
+                        title={signal.title}
+                        description={signal.description}
+                        impactArea={signal.impact_area}
+                        metricValue={signal.metric_value}
+                        metricTrend={signal.metric_trend}
+                      />
+                    ))}
+                  </ul>
+                )}
               </CardContent>
             </Card>
           </div>

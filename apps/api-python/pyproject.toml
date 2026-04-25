@@ -22,4 +22,5 @@ dependencies = [
     "langgraph>=0.0.30",
     "langchain-core>=0.1.30",
     "langchain>=0.1.10",
+    "greenlet>=3.0.0",
 ]
