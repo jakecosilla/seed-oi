@@ -15,6 +15,8 @@ class RiskSummaryResponse(BaseModel):
     critical_bottlenecks: int
     upcoming_delay_days: int
     total_exposure_usd: float
+    on_track_percentage: float
+    improved_capacity_count: int
 
 class TimelineEvent(BaseModel):
     id: uuid.UUID
@@ -42,7 +44,9 @@ async def get_risk_summary(
         total_active_risks=24,
         critical_bottlenecks=5,
         upcoming_delay_days=128,
-        total_exposure_usd=3450000.0
+        total_exposure_usd=3450000.0,
+        on_track_percentage=92.5,
+        improved_capacity_count=3
     )
 
 @router.get("/timeline", response_model=List[TimelineEvent])

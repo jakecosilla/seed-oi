@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { SidePanel } from '@/components/ui/SidePanel';
 import { fetchApi } from '@/lib/api-client';
-import { AlertCircle, Clock, DollarSign, Activity, TrendingUp, AlertTriangle, Filter, Layers } from 'lucide-react';
+import { AlertCircle, Clock, DollarSign, Activity, TrendingUp, AlertTriangle, Filter, Layers, CheckCircle2, Zap } from 'lucide-react';
 import { AIAssistant } from '@/components/layout/AIAssistant';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/providers/AuthProvider';
@@ -15,6 +15,8 @@ export interface RiskSummary {
   critical_bottlenecks: number;
   upcoming_delay_days: number;
   total_exposure_usd: number;
+  on_track_percentage: number;
+  improved_capacity_count: number;
 }
 
 export interface TimelineEvent {
@@ -92,52 +94,64 @@ export default function RisksPage() {
           </div>
 
           {/* Top Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="border-l-4 border-l-rose-500">
               <CardContent className="pt-6 flex flex-col gap-1">
-                <div className="flex justify-between items-start">
-                  <span className="text-sm font-medium text-slate-500">Total Active Risks</span>
-                  <Activity size={16} className="text-indigo-500" />
+                <div className="flex justify-between items-start text-slate-500">
+                  <span className="text-xs font-bold uppercase tracking-wider">Active Risks</span>
+                  <Activity size={16} />
                 </div>
                 <span className="text-3xl font-bold text-slate-900 tracking-tight">
                   {summary ? summary.total_active_risks : '...'}
                 </span>
+                <div className="text-xs text-rose-600 font-medium flex items-center gap-1 mt-1">
+                   {summary?.critical_bottlenecks} critical bottlenecks
+                </div>
               </CardContent>
             </Card>
             
-            <Card>
+            <Card className="border-l-4 border-l-amber-500">
               <CardContent className="pt-6 flex flex-col gap-1">
-                <div className="flex justify-between items-start">
-                  <span className="text-sm font-medium text-slate-500">Critical Bottlenecks</span>
-                  <AlertTriangle size={16} className="text-amber-500" />
-                </div>
-                <span className="text-3xl font-bold text-slate-900 tracking-tight">
-                  {summary ? summary.critical_bottlenecks : '...'}
-                </span>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6 flex flex-col gap-1">
-                <div className="flex justify-between items-start">
-                  <span className="text-sm font-medium text-slate-500">Upcoming Delay (Days)</span>
-                  <Clock size={16} className="text-rose-500" />
-                </div>
-                <span className="text-3xl font-bold text-slate-900 tracking-tight">
-                  {summary ? summary.upcoming_delay_days : '...'}
-                </span>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6 flex flex-col gap-1">
-                <div className="flex justify-between items-start">
-                  <span className="text-sm font-medium text-slate-500">Total Exposure</span>
-                  <DollarSign size={16} className="text-emerald-600" />
+                <div className="flex justify-between items-start text-slate-500">
+                  <span className="text-xs font-bold uppercase tracking-wider">Exposure Horizon</span>
+                  <Clock size={16} />
                 </div>
                 <span className="text-3xl font-bold text-slate-900 tracking-tight">
                   {summary ? formatCurrency(summary.total_exposure_usd) : '...'}
                 </span>
+                <div className="text-xs text-amber-600 font-medium flex items-center gap-1 mt-1">
+                   {summary?.upcoming_delay_days} days aggregate delay
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-l-4 border-l-emerald-500">
+              <CardContent className="pt-6 flex flex-col gap-1">
+                <div className="flex justify-between items-start text-slate-500">
+                  <span className="text-xs font-bold uppercase tracking-wider">On-Track Orders</span>
+                  <CheckCircle2 size={16} />
+                </div>
+                <span className="text-3xl font-bold text-slate-900 tracking-tight">
+                  {summary ? `${summary.on_track_percentage}%` : '...'}
+                </span>
+                <div className="text-xs text-emerald-600 font-medium flex items-center gap-1 mt-1">
+                   <TrendingUp size={12} /> Exceeding baseline targets
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-l-4 border-l-indigo-500">
+              <CardContent className="pt-6 flex flex-col gap-1">
+                <div className="flex justify-between items-start text-slate-500">
+                  <span className="text-xs font-bold uppercase tracking-wider">Capacity Gains</span>
+                  <Zap size={16} />
+                </div>
+                <span className="text-3xl font-bold text-slate-900 tracking-tight">
+                  {summary ? summary.improved_capacity_count : '...'}
+                </span>
+                <div className="text-xs text-indigo-600 font-medium flex items-center gap-1 mt-1">
+                   Sites with available bandwidth
+                </div>
               </CardContent>
             </Card>
           </div>

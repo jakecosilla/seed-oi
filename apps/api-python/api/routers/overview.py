@@ -17,6 +17,10 @@ class SummaryResponse(BaseModel):
     critical_issues: int
     total_revenue_at_risk: float
     total_delay_days: int
+    on_track_percentage: float
+    improved_count: int
+    available_capacity_pct: float
+    active_opportunities: int
 
 class RecommendationDTO(BaseModel):
     id: uuid.UUID
@@ -52,6 +56,15 @@ class IssueResponse(BaseModel):
     risks: List[RiskDTO] = []
     top_scenario: Optional[ScenarioDTO] = None
 
+class HealthSignal(BaseModel):
+    id: uuid.UUID
+    category: str  # 'Healthy', 'Improved', 'Capacity', 'Opportunity'
+    title: str
+    description: str
+    metric_value: Optional[str]
+    metric_trend: Optional[str]  # 'up', 'down', 'stable'
+    impact_area: str
+
 @router.get("/summary", response_model=SummaryResponse)
 async def get_overview_summary(
     tenant_id: uuid.UUID = Query(...),
@@ -64,8 +77,59 @@ async def get_overview_summary(
         total_open_issues=12,
         critical_issues=3,
         total_revenue_at_risk=2450000.0,
-        total_delay_days=45
+        total_delay_days=45,
+        on_track_percentage=88.5,
+        improved_count=5,
+        available_capacity_pct=15.2,
+        active_opportunities=4
     )
+
+@router.get("/health", response_model=List[HealthSignal])
+async def get_overview_health(
+    tenant_id: uuid.UUID = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    auth_service.check_tenant_access(current_user, tenant_id)
+    # Mock data for demo
+    return [
+        HealthSignal(
+            id=uuid.uuid4(),
+            category="Healthy",
+            title="Material Inventory: Southern Site",
+            description="Inventory levels for core components are stable with 14 days of safety stock.",
+            metric_value="98%",
+            metric_trend="stable",
+            impact_area="Production"
+        ),
+        HealthSignal(
+            id=uuid.uuid4(),
+            category="Improved",
+            title="Lead Time: Vendor Alpha",
+            description="Average lead time has decreased by 2 days over the last 30 days.",
+            metric_value="-15%",
+            metric_trend="down",
+            impact_area="Supply Chain"
+        ),
+        HealthSignal(
+            id=uuid.uuid4(),
+            category="Capacity",
+            title="Line 4 Availability",
+            description="Line 4 has 20% available capacity next week due to early maintenance completion.",
+            metric_value="20%",
+            metric_trend="up",
+            impact_area="Manufacturing"
+        ),
+        HealthSignal(
+            id=uuid.uuid4(),
+            category="Opportunity",
+            title="Consolidated Shipping",
+            description="Opportunity to consolidate 5 pending shipments from Vendor Beta to save $12k.",
+            metric_value="$12,000",
+            metric_trend="up",
+            impact_area="Logistics"
+        )
+    ]
 
 @router.get("/issues", response_model=List[IssueResponse])
 async def get_overview_issues(
